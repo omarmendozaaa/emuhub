@@ -1,0 +1,176 @@
+{
+  "bundleVersion": "2026.10.30",
+  "emulators": [
+    {
+      "id": "snes9x",
+      "name": "Snes9x",
+      "version": "1.63",
+      "consoles": ["snes"],
+      "license": "Licencia Snes9x (redistribución gratuita, uso no comercial)",
+      "source": "https://github.com/snes9xgit/snes9x",
+      "platforms": {
+        "linux-amd64": {
+          "url": "https://github.com/snes9xgit/snes9x/releases/download/1.63/Snes9x-1.63-x86_64.AppImage",
+          "sha256": "21a3d120dac7525a9effac3dbec82bd809dd91684bd46451c010480614427c39",
+          "format": "appimage",
+          "command": "{root}/AppRun {rom}"
+        },
+        "windows-amd64": {
+          "url": "https://github.com/snes9xgit/snes9x/releases/download/1.63/snes9x-1.63-win32-x64.zip",
+          "sha256": "e2bd103819051eae57d163cdbbf6b3b92db73fdd4a6a0ee6a939e507eaa95db8",
+          "format": "zip",
+          "command": "{root}/snes9x-x64.exe {rom}"
+        },
+        "darwin-universal": {
+          "url": "https://github.com/snes9xgit/snes9x/releases/download/1.63/Snes9x-1.63-Mac.zip",
+          "sha256": "dce88223b0b373357249bfb604415a379dcba6a996ca254bdeca5b16a8564c69",
+          "format": "zip",
+          "command": "/usr/bin/open -W -n -a {root}/Snes9x.app {rom}"
+        }
+      }
+    },
+    {
+      "id": "rmg",
+      "name": "Rosalie's Mupen GUI",
+      "version": "0.9.0",
+      "consoles": ["n64"],
+      "license": "GPL-3.0",
+      "source": "https://github.com/Rosalie241/RMG",
+      "platforms": {
+        "linux-amd64": {
+          "url": "https://github.com/Rosalie241/RMG/releases/download/v0.9.0/RMG-Portable-Linux64-v0.9.0.AppImage",
+          "sha256": "43ce15e11404aaff313ec44ca03601e5e753bba3b355c38a7c67a4344d517aca",
+          "format": "appimage",
+          "command": "{root}/AppRun --fullscreen --quit-after-emulation {rom}"
+        },
+        "windows-amd64": {
+          "url": "https://github.com/Rosalie241/RMG/releases/download/v0.9.0/RMG-Portable-Windows64-v0.9.0.zip",
+          "sha256": "f81640a0ae7474c0915f263d1acac20cf816ac8666f897cbf3710cd485a9027d",
+          "format": "zip",
+          "command": "{root}/RMG.exe --fullscreen --quit-after-emulation {rom}"
+        }
+      }
+    },
+    {
+      "id": "ares",
+      "name": "ares",
+      "version": "v148",
+      "consoles": ["n64"],
+      "license": "ISC",
+      "source": "https://github.com/ares-emulator/ares",
+      "platforms": {
+        "darwin-universal": {
+          "url": "https://github.com/ares-emulator/ares/releases/download/v148/ares-macos-universal.zip",
+          "sha256": "1ae232ab6de341210f171f51d84b311527eb1399060706589334a8a7de136bb0",
+          "format": "zip",
+          "command": "{root}/ares-v148/ares.app/Contents/MacOS/ares --fullscreen --system \"Nintendo 64\" {rom}"
+        }
+      }
+    },
+    {
+      "id": "duckstation",
+      "name": "DuckStation",
+      "version": "v0.1-12083",
+      "consoles": ["ps1"],
+      "license": "CC BY-NC-ND 4.0 (redistribución sin modificar, uso no comercial)",
+      "source": "https://github.com/stenzek/duckstation",
+      "platforms": {
+        "linux-amd64": {
+          "url": "https://github.com/stenzek/duckstation/releases/download/v0.1-12083/DuckStation-x64.AppImage",
+          "sha256": "c5e6f045f6a242082fcafa9f02d56ad895e233b942728788d232ad0c0c765c24",
+          "format": "appimage",
+          "command": "{root}/AppRun -batch -fullscreen {rom}",
+          "provision": {"ps1.bios": "{xdgdata}/duckstation/bios"}
+        },
+        "windows-amd64": {
+          "url": "https://github.com/stenzek/duckstation/releases/download/v0.1-12083/duckstation-windows-x64-release.zip",
+          "sha256": "c7b126b98c19a87fa5f7068adc26d8f59d8e3266cd7ec5d257d039c8984fbbb8",
+          "format": "zip",
+          "command": "{root}/duckstation-qt-x64-ReleaseLTCG.exe -batch -fullscreen {rom}",
+          "provision": {"ps1.bios": "{documents}/DuckStation/bios"}
+        },
+        "darwin-universal": {
+          "url": "https://github.com/stenzek/duckstation/releases/download/v0.1-12083/duckstation-mac-release.zip",
+          "sha256": "cd77d80b55276f15340efa1c65df250f8f4d413b68d1c136e48615d780f1249c",
+          "format": "zip",
+          "command": "{root}/DuckStation.app/Contents/MacOS/DuckStation -batch -fullscreen {rom}",
+          "provision": {"ps1.bios": "{home}/Library/Application Support/DuckStation/bios"}
+        }
+      }
+    },
+    {
+      "id": "pcsx2",
+      "name": "PCSX2",
+      "version": "2.8.2",
+      "consoles": ["ps2"],
+      "license": "GPL-3.0",
+      "source": "https://github.com/PCSX2/pcsx2",
+      "platforms": {
+        "linux-amd64": {
+          "url": "https://github.com/PCSX2/pcsx2/releases/download/v2.8.2/pcsx2-v2.8.2-linux-appimage-x64-Qt.AppImage",
+          "sha256": "0c46bb6a88aa2782b10853a7b07cf3387ba99cbef2b966372cd2315b8571abea",
+          "format": "appimage",
+          "command": "{root}/AppRun -batch -nogui -fullscreen -- {rom}",
+          "provision": {"ps2.bios": "{xdgconfig}/PCSX2/bios"}
+        },
+        "windows-amd64": {
+          "url": "https://github.com/PCSX2/pcsx2/releases/download/v2.8.2/pcsx2-v2.8.2-windows-x64-Qt.7z",
+          "sha256": "7dfc829ca1994cc1045ac49f05e39b6cf968b72e6a374c40e05c2a2b4ac200b4",
+          "format": "7z",
+          "command": "{root}/pcsx2-qt.exe -batch -nogui -fullscreen -- {rom}",
+          "provision": {"ps2.bios": "{documents}/PCSX2/bios"}
+        },
+        "darwin-universal": {
+          "url": "https://github.com/PCSX2/pcsx2/releases/download/v2.8.2/pcsx2-v2.8.2-macos-Qt.tar.xz",
+          "sha256": "3ed9eb40a33eae67134142c24255a079be444f0616ca29575a04a37981f7d426",
+          "format": "tar.xz",
+          "command": "{root}/PCSX2-v2.8.2.app/Contents/MacOS/PCSX2 -batch -nogui -fullscreen -- {rom}",
+          "provision": {"ps2.bios": "{home}/Library/Application Support/PCSX2/bios"}
+        }
+      }
+    },
+    {
+      "id": "rpcs3",
+      "name": "RPCS3",
+      "version": "0.0.43-20511",
+      "consoles": ["ps3"],
+      "license": "GPL-2.0",
+      "source": "https://github.com/RPCS3/rpcs3",
+      "platforms": {
+        "linux-amd64": {
+          "url": "https://github.com/RPCS3/rpcs3-binaries-linux/releases/download/build-9508444d31338e89a4f4cee1d0cee1800c96d2c1/rpcs3-v0.0.43-20511-9508444d_linux64.AppImage",
+          "sha256": "b286c5fc6056355d2e991be03f540448c0a82d104a8a6c398367839a4c707f67",
+          "format": "appimage-raw",
+          "command": "{root}/app.AppImage --no-gui {rom}",
+          "firmware": {
+            "requirement": "ps3.firmware",
+            "installed": "{xdgconfig}/rpcs3/dev_flash/vsh/module/vsh.self",
+            "install": "{root}/app.AppImage --installfw {file}"
+          }
+        },
+        "windows-amd64": {
+          "url": "https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-9508444d31338e89a4f4cee1d0cee1800c96d2c1/rpcs3-v0.0.43-20511-9508444d_win64_msvc.7z",
+          "sha256": "e0ab2b0dd9913b47731db7172d7ec56a098b9a48e4d1496e2cc4f8593e5f18c9",
+          "format": "7z",
+          "command": "{root}/rpcs3.exe --no-gui {rom}",
+          "firmware": {
+            "requirement": "ps3.firmware",
+            "installed": "{root}/dev_flash/vsh/module/vsh.self",
+            "install": "{root}/rpcs3.exe --installfw {file}"
+          }
+        },
+        "darwin-universal": {
+          "url": "https://github.com/RPCS3/rpcs3-binaries-mac/releases/download/build-9508444d31338e89a4f4cee1d0cee1800c96d2c1/rpcs3-v0.0.43-20511-9508444d_macos.7z",
+          "sha256": "c7164256974048b032d4112f774afe39a16dfc2c55545d6c9374ba2238e0bee6",
+          "format": "7z",
+          "command": "{root}/RPCS3.app/Contents/MacOS/rpcs3 --no-gui {rom}",
+          "firmware": {
+            "requirement": "ps3.firmware",
+            "installed": "{home}/Library/Application Support/rpcs3/dev_flash/vsh/module/vsh.self",
+            "install": "{root}/RPCS3.app/Contents/MacOS/rpcs3 --installfw {file}"
+          }
+        }
+      }
+    }
+  ]
+}
