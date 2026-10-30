@@ -26,9 +26,9 @@ jobs:
           - target: windows-amd64
             os: ubuntu-22.04
           - target: darwin-arm64
-            os: macos-14
+            os: macos-latest
           - target: darwin-amd64
-            os: macos-14
+            os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
