@@ -67,6 +67,9 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.autoConfigure()
 	go a.installBundle()
+	if a.store.Settings().AutoCovers {
+		go a.fetchMissingCovers()
+	}
 }
 
 // autoConfigure fills in emulators and conventional ROM folders for consoles
@@ -233,6 +236,9 @@ func (a *App) fetchMissingCovers() {
 		if !g.HasCover {
 			missing = append(missing, g)
 		}
+	}
+	if len(missing) == 0 {
+		return
 	}
 	p := CoverProgress{Total: len(missing), Busy: true}
 	runtime.EventsEmit(a.ctx, "covers:progress", p)

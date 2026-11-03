@@ -63,12 +63,6 @@ button { font: inherit; color: inherit; }
     background:
         radial-gradient(ellipse 60% 18% at 30% 72%, rgba(140, 120, 255, 0.35), transparent 70%),
         radial-gradient(ellipse 55% 14% at 75% 78%, rgba(90, 170, 255, 0.28), transparent 70%);
-    animation: waves 16s ease-in-out infinite alternate;
-}
-
-@keyframes waves {
-    from { transform: translateX(-4%) translateY(0) scaleY(1); }
-    to { transform: translateX(4%) translateY(-3%) scaleY(1.25); }
 }
 
 .bg-vignette {
@@ -239,7 +233,7 @@ button { font: inherit; color: inherit; }
     border-radius: 6px;
     background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.18) 45%, transparent 60%);
     background-size: 250% 100%;
-    animation: shine 3.2s ease-in-out infinite;
+    animation: shine 3.2s ease-in-out;
     pointer-events: none;
 }
 

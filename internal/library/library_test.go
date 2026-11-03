@@ -2,7 +2,11 @@ package library
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -120,5 +124,65 @@ func TestScanPS3Folders(t *testing.T) {
 	g := games[0]
 	if g.Title != "Demon's Souls" || g.Serial != "BLUS30443" || g.Cover == "" {
 		t.Errorf("unexpected game: %+v", g)
+	}
+}
+
+func TestBestBoxart(t *testing.T) {
+	index := []string{
+		"Bloody Roar (USA)",
+		"Bloody Roar 2 - Bringer of the New Age (Europe)",
+		"Bloody Roar II (Beta)",
+		"Bloody Roar II (Japan)",
+		"Bloody Roar II (USA) (Rev 1)",
+		"Bloody Roar II (USA)",
+		"Legend of Zelda, The - A Link to the Past (USA)",
+		"Tomb Raider (Demo) (USA)",
+	}
+	for title, want := range map[string]string{
+		"Bloody Roar II": "Bloody Roar II (USA)",
+		"bloody roar ii": "Bloody Roar II (USA)",
+		"The Legend of Zelda - A Link to the Past": "Legend of Zelda, The - A Link to the Past (USA)",
+		"Bloody Roar 3": "",
+		"Tomb Raider":   "",
+		"Bloody":        "",
+	} {
+		if got := bestBoxart(index, title); got != want {
+			t.Errorf("bestBoxart(%q) = %q, want %q", title, got, want)
+		}
+	}
+}
+
+func TestFetchCoverFindsRegionInIndex(t *testing.T) {
+	var png = []byte("png")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/Sony - PlayStation/Named_Boxarts/":
+			fmt.Fprint(w, `<a href="?C=N;O=D">Name</a><a href="/Sony/">Parent</a><a href="Game%20One%20(USA).png">x</a>`)
+		case "/Sony - PlayStation/Named_Boxarts/Game One (USA).png":
+			w.Header().Set("Content-Type", "image/png")
+			w.Write(png)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	oldBase := thumbnailsBase
+	thumbnailsBase = srv.URL + "/"
+	boxartIndexes = map[string][]string{}
+	t.Cleanup(func() {
+		thumbnailsBase = oldBase
+		boxartIndexes = map[string][]string{}
+	})
+
+	dir := t.TempDir()
+	path, err := FetchCover(context.Background(), Game{ID: "id", Console: "ps1", Title: "Game One", FileName: "Game One"}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(path); !bytes.Equal(got, png) {
+		t.Fatalf("got %q", got)
+	}
+	if _, err := FetchCover(context.Background(), Game{ID: "x", Console: "ps1", Title: "Other", FileName: "Other"}, dir); err == nil {
+		t.Fatal("cover found for an unknown game")
 	}
 }
