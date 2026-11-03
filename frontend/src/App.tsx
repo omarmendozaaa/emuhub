@@ -6,6 +6,7 @@ import {
 } from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
 import {Carousel} from './components/Carousel'
+import {GameList} from './components/GameList'
 import {GameMenu, gameMenuItems} from './components/GameMenu'
 import {Glyph, Hint} from './components/Glyph'
 import {CoverProgress, Settings} from './components/Settings'
@@ -19,6 +20,9 @@ interface Category {
 }
 
 type Toast = { id: number, text: string, kind: 'info' | 'error' }
+
+// Rows skipped by left/right in the list.
+const LIST_PAGE = 10
 
 export default function App() {
     const [consoles, setConsoles] = useState<main.ConsoleInfo[]>([])
@@ -95,13 +99,15 @@ export default function App() {
     const consoleMap = useMemo(() => Object.fromEntries(consoles.map(c => [c.id, c])), [consoles])
 
     const categories: Category[] = useMemo(() => [
-        {id: 'all', label: 'Todos'},
-        {id: 'recent', label: 'Recientes'},
         {id: 'fav', label: 'Favoritos'},
+        {id: 'recent', label: 'Recientes'},
+        {id: 'all', label: 'Todos'},
         ...consoles.map(c => ({id: c.id, label: c.shortName, accent: c.accent})),
     ], [consoles])
 
     const category = categories[catIndex] ?? categories[0]
+    // Favorites are few enough for the carousel; everything else is a list.
+    const isCarousel = category.id === 'fav'
 
     const list = useMemo(() => {
         switch (category.id) {
@@ -207,10 +213,18 @@ export default function App() {
             return
         }
         switch (a) {
-            case 'left': setFocus(focus - 1); break
-            case 'right': setFocus(focus + 1); break
-            case 'up': setFocus(0); break
-            case 'down': setFocus(list.length - 1); break
+            case 'left':
+                setFocus(isCarousel ? focus - 1 : Math.max(0, focus - LIST_PAGE))
+                break
+            case 'right':
+                setFocus(isCarousel ? focus + 1 : Math.min(list.length - 1, focus + LIST_PAGE))
+                break
+            case 'up':
+                setFocus(isCarousel ? 0 : focus - 1)
+                break
+            case 'down':
+                setFocus(isCarousel ? list.length - 1 : focus + 1)
+                break
             case 'l1': switchCategory(-1); break
             case 'r1': switchCategory(1); break
             case 'confirm': play(); break
@@ -225,6 +239,28 @@ export default function App() {
     const readyCount = consoles.filter(c => c.ready).length
     const runningGame = running ? games.find(g => g.id === running) : undefined
     const bg = current ? backdropUrl(current) : ''
+
+    const info = current && (
+        <>
+            <h1>{current.title}</h1>
+            <div className="focus-meta">
+                <span className="meta-console" style={{color: currentConsole?.accent}}>{currentConsole?.name}</span>
+                {current.serial && <span>{current.serial}</span>}
+                <span>{formatPlaytime(current.playSeconds)}</span>
+                {current.lastPlayed > 0 && <span>{formatAgo(current.lastPlayed)}</span>}
+            </div>
+            <button className="play-btn" onClick={() => play()} tabIndex={-1}>
+                <Glyph kind="cross" size={30}/>
+            </button>
+            {currentConsole && !currentConsole.ready && !bundle?.installing && (
+                <button className="warn" onClick={() => openSettings(currentConsole.id)} tabIndex={-1}>
+                    {!currentConsole.emulatorOk
+                        ? `Configura un emulador para ${currentConsole.shortName}`
+                        : `Falta: ${currentConsole.requirements.filter(r => !r.ok).map(r => r.label).join(', ')}`}
+                </button>
+            )}
+        </>
+    )
 
     return (
         <div className="app" style={{['--accent' as string]: accent}}>
@@ -257,33 +293,34 @@ export default function App() {
             </header>
 
             <main className="stage">
-                {list.length > 0 ? (
+                {list.length === 0 ? (
+                    <EmptyState
+                        category={category}
+                        hasAny={games.length > 0}
+                        scanning={scanning}
+                        onSettings={() => openSettings(consoleMap[category.id] ? category.id : 'general')}
+                        onScan={scan}
+                        onShowAll={() => { blip('move'); setCatIndex(categories.findIndex(c => c.id === 'all')) }}
+                    />
+                ) : isCarousel ? (
                     <>
                         <Carousel games={list} focus={focus} consoles={consoleMap} onFocus={setFocus} onActivate={i => play(list[i])}/>
-                        {current && (
-                            <div className="focus-info" key={current.id}>
-                                <h1>{current.title}</h1>
-                                <div className="focus-meta">
-                                    <span className="meta-console" style={{color: currentConsole?.accent}}>{currentConsole?.name}</span>
-                                    {current.serial && <span>{current.serial}</span>}
-                                    <span>{formatPlaytime(current.playSeconds)}</span>
-                                    {current.lastPlayed > 0 && <span>{formatAgo(current.lastPlayed)}</span>}
-                                </div>
-                                <button className="play-btn" onClick={() => play()} tabIndex={-1}>
-                                    <Glyph kind="cross" size={30}/>
-                                </button>
-                                {currentConsole && !currentConsole.ready && !bundle?.installing && (
-                                    <button className="warn" onClick={() => openSettings(currentConsole.id)} tabIndex={-1}>
-                                        {!currentConsole.emulatorOk
-                                            ? `Configura un emulador para ${currentConsole.shortName}`
-                                            : `Falta: ${currentConsole.requirements.filter(r => !r.ok).map(r => r.label).join(', ')}`}
-                                    </button>
-                                )}
-                            </div>
-                        )}
+                        {info && <div className="focus-info">{info}</div>}
                     </>
                 ) : (
-                    <EmptyState category={category} hasAny={games.length > 0} scanning={scanning} onSettings={() => openSettings(consoleMap[category.id] ? category.id : 'general')} onScan={scan}/>
+                    <div className="list-view">
+                        <GameList games={list} focus={focus} consoles={consoleMap} onFocus={setFocus} onActivate={i => play(list[i])}/>
+                        {current && (
+                            <aside className="list-detail" style={{['--accent' as string]: accent}}>
+                                <div className="list-cover">
+                                    {current.hasCover
+                                        ? <img src={coverUrl(current)} alt="" draggable={false}/>
+                                        : <span>{currentConsole?.shortName}</span>}
+                                </div>
+                                {info}
+                            </aside>
+                        )}
+                    </div>
                 )}
             </main>
 
@@ -351,20 +388,40 @@ export default function App() {
 }
 
 function Background({image, accent}: { image: string, accent: string }) {
-    // Keep the previous image underneath while the new one fades in.
+    // Each new image fades in over the previous ones, which are dropped only
+    // once it fully covers them, so removing them cannot change what is visible.
     const [layers, setLayers] = useState<{ src: string, key: number }[]>([])
     const key = useRef(0)
     useEffect(() => {
+        let cancelled = false
+        const add = () => {
+            if (!cancelled) setLayers(l => [...l, {src: image, key: ++key.current}])
+        }
         const t = setTimeout(() => {
-            setLayers(l => [...l.slice(-1), {src: image, key: ++key.current}])
+            if (!image) return add()
+            const img = new Image()
+            img.src = image
+            img.decode().catch(() => {}).finally(add)
         }, 120)
-        return () => clearTimeout(t)
+        return () => {
+            cancelled = true
+            clearTimeout(t)
+        }
     }, [image])
 
     return (
         <div className="bg">
             <div className="bg-base"/>
-            {layers.map(l => l.src && <div key={l.key} className="bg-art" style={{backgroundImage: `url("${l.src}")`}}/>)}
+            <div className="bg-arts">
+                {layers.map(l => (
+                    <div
+                        key={l.key}
+                        className="bg-art"
+                        style={l.src ? {backgroundImage: `url("${l.src}")`} : undefined}
+                        onAnimationEnd={() => setLayers(all => all.slice(all.findIndex(x => x.key === l.key)))}
+                    />
+                ))}
+            </div>
             <div className="bg-glow" style={{background: `radial-gradient(ellipse 70% 55% at 50% 52%, ${accent}55, transparent 70%)`}}/>
             <div className="bg-waves"/>
             <div className="bg-vignette"/>
@@ -372,14 +429,14 @@ function Background({image, accent}: { image: string, accent: string }) {
     )
 }
 
-function EmptyState({category, hasAny, scanning, onSettings, onScan}: {
-    category: Category, hasAny: boolean, scanning: boolean, onSettings: () => void, onScan: () => void,
+function EmptyState({category, hasAny, scanning, onSettings, onScan, onShowAll}: {
+    category: Category, hasAny: boolean, scanning: boolean, onSettings: () => void, onScan: () => void, onShowAll: () => void,
 }) {
     let title = 'Tu biblioteca está vacía'
     let text = 'Añade las carpetas donde guardas tus juegos y configura los emuladores en Ajustes.'
     if (hasAny && category.id === 'fav') {
         title = 'Sin favoritos'
-        text = 'Pulsa □ (o F) sobre un juego para añadirlo aquí.'
+        text = 'Pulsa □ (o F) sobre un juego de tus listas para añadirlo aquí.'
     } else if (hasAny && category.id === 'recent') {
         title = 'Nada jugado todavía'
         text = 'Los juegos que inicies aparecerán aquí.'
@@ -392,6 +449,7 @@ function EmptyState({category, hasAny, scanning, onSettings, onScan}: {
             <h2>{title}</h2>
             <p>{text}</p>
             <div className="row-actions">
+                {hasAny && category.id === 'fav' && <button className="btn primary" onClick={onShowAll}>Ver todos los juegos</button>}
                 <button className="btn primary" onClick={onSettings}>Abrir ajustes</button>
                 <button className="btn" disabled={scanning} onClick={onScan}>{scanning ? 'Escaneando…' : 'Escanear'}</button>
             </div>
