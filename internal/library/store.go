@@ -46,9 +46,8 @@ type ConsoleConfig struct {
 }
 
 type Settings struct {
-	MinimizeOnLaunch bool              `json:"minimizeOnLaunch"`
-	AutoCovers       bool              `json:"autoCovers"`
-	Paths            map[string]string `json:"paths"` // requirement ID -> BIOS folder / firmware file
+	MinimizeOnLaunch bool `json:"minimizeOnLaunch"`
+	AutoCovers       bool `json:"autoCovers"`
 }
 
 type fileData struct {
@@ -228,22 +227,7 @@ func (s *Store) ReplaceConsoleGames(console string, scanned []*Game) error {
 func (s *Store) Settings() Settings {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := s.settings
-	out.Paths = map[string]string{}
-	for k, v := range s.settings.Paths {
-		out.Paths[k] = v
-	}
-	return out
-}
-
-func (s *Store) SetPath(id, path string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.settings.Paths == nil {
-		s.settings.Paths = map[string]string{}
-	}
-	s.settings.Paths[id] = path
-	return s.saveLocked()
+	return s.settings
 }
 
 func (s *Store) SetSettings(v Settings) error {

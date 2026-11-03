@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
 import type {library, main} from '../../wailsjs/go/models'
 import {
-    DetectEmulators, PickExecutable, PickFolder, PickRequirementPath, SaveConsoleConfig, SaveSettings, SetRequirementPath,
+    DetectEmulators, OpenBIOSFolder, PickExecutable, PickFolder, SaveConsoleConfig, SaveSettings,
 } from '../../wailsjs/go/main/App'
 import {errorText} from '../util'
 
@@ -274,11 +274,11 @@ function ConsoleSettings(p: Props & { info: main.ConsoleInfo, count: number }) {
                 <>
                     <h4>BIOS y firmware</h4>
                     <p className="muted small">
-                        EmuHub no incluye estos archivos. Indica dónde están; se comprueban antes de cada partida
+                        EmuHub no incluye estos archivos. Déjalos en esta carpeta; se comprueban antes de cada partida
                         {mode === 'bundled' && ' y se copian al emulador incluido automáticamente'}.
                     </p>
                     {info.requirements.map(r => (
-                        <RequirementRow key={r.id} req={r} onChanged={p.onChanged} onError={p.onError}/>
+                        <RequirementRow key={r.id} req={r} console={info.id} onChanged={p.onChanged} onError={p.onError}/>
                     ))}
                 </>
             )}
@@ -313,27 +313,12 @@ function defaultSuggestion(id: string) {
     return {snes: 'Snes9x o RetroArch', n64: 'RMG, simple64 o Mupen64Plus', ps1: 'DuckStation', ps2: 'PCSX2', ps3: 'RPCS3'}[id] ?? 'un emulador'
 }
 
-function RequirementRow({req, onChanged, onError}: {
-    req: main.RequirementStatus, onChanged: () => void, onError: (msg: string) => void,
+function RequirementRow({req, console: consoleId, onChanged, onError}: {
+    req: main.RequirementStatus, console: string, onChanged: () => void, onError: (msg: string) => void,
 }) {
-    const [path, setPath] = useState(req.path)
-    useEffect(() => setPath(req.path), [req.path])
-
-    const save = async (value: string) => {
+    const open = async () => {
         try {
-            await SetRequirementPath(req.id, value)
-            onChanged()
-        } catch (e) {
-            onError(errorText(e))
-        }
-    }
-    const pick = async () => {
-        try {
-            const chosen = await PickRequirementPath(req.id)
-            if (chosen) {
-                setPath(chosen)
-                onChanged()
-            }
+            await OpenBIOSFolder(consoleId)
         } catch (e) {
             onError(errorText(e))
         }
@@ -347,17 +332,10 @@ function RequirementRow({req, onChanged, onError}: {
                 <span className="req-detail">{req.detail}</span>
             </div>
             <p className="muted small">{req.hint}</p>
-            <div className="input-row">
-                <input
-                    className="text"
-                    value={path}
-                    placeholder={req.kind === 'dir' ? 'Carpeta…' : 'Archivo…'}
-                    spellCheck={false}
-                    onChange={e => setPath(e.target.value)}
-                    onBlur={() => path !== req.path && save(path)}
-                    onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                />
-                <button className="btn" onClick={pick}>{req.kind === 'dir' ? 'Elegir carpeta…' : 'Elegir archivo…'}</button>
+            <p className="small"><code>{req.path}</code></p>
+            <div className="row-actions">
+                <button className="btn" onClick={open}>Abrir carpeta</button>
+                <button className="btn" onClick={onChanged}>Comprobar de nuevo</button>
             </div>
         </div>
     )

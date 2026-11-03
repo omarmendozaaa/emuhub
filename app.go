@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -61,6 +62,9 @@ func NewApp(store *library.Store) *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	if err := library.EnsureBIOSDirs(); err != nil {
+		log.Printf("no se pudieron crear las carpetas de BIOS: %v", err)
+	}
 	a.autoConfigure()
 	go a.installBundle()
 }

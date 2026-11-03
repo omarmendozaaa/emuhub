@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+	goruntime "runtime"
 
 	"emuhub/internal/bundle"
 	"emuhub/internal/library"
@@ -120,7 +120,6 @@ func (a *App) bundledFor(console string) *bundle.Emulator {
 type RequirementStatus struct {
 	ID     string   `json:"id"`
 	Label  string   `json:"label"`
-	Kind   string   `json:"kind"`
 	Hint   string   `json:"hint"`
 	Path   string   `json:"path"`
 	OK     bool     `json:"ok"`
@@ -129,10 +128,9 @@ type RequirementStatus struct {
 }
 
 func (a *App) requirementStatuses(console string, emu *bundle.Emulator) []RequirementStatus {
-	paths := a.store.Settings().Paths
 	out := []RequirementStatus{}
 	for _, r := range library.RequirementsFor(console) {
-		st := RequirementStatus{ID: r.ID, Label: r.Label, Kind: r.Kind, Hint: r.Hint, Path: paths[r.ID]}
+		st := RequirementStatus{ID: r.ID, Label: r.Label, Hint: r.Hint, Path: r.Dir()}
 		files, err := r.Check(st.Path)
 		switch {
 		case err == nil:
@@ -157,34 +155,25 @@ func firmwareInstalled(emu *bundle.Emulator, reqID string) bool {
 	return err == nil
 }
 
-func (a *App) SetRequirementPath(id, path string) error {
-	if library.RequirementByID(id) == nil {
-		return fmt.Errorf("requisito desconocido: %s", id)
+// OpenBIOSFolder opens a console's BIOS folder in the file manager.
+func (a *App) OpenBIOSFolder(console string) error {
+	dir := library.BIOSDir(console)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
 	}
-	return a.store.SetPath(id, strings.TrimSpace(path))
-}
-
-// PickRequirementPath opens the right dialog (folder or file) for a
-// requirement and saves the choice.
-func (a *App) PickRequirementPath(id string) (string, error) {
-	r := library.RequirementByID(id)
-	if r == nil {
-		return "", fmt.Errorf("requisito desconocido: %s", id)
+	opener := "xdg-open"
+	switch goruntime.GOOS {
+	case "windows":
+		opener = "explorer"
+	case "darwin":
+		opener = "open"
 	}
-	var path string
-	var err error
-	if r.Kind == "dir" {
-		path, err = runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: r.Label})
-	} else {
-		path, err = runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-			Title:   r.Label,
-			Filters: []runtime.FileFilter{{DisplayName: "Firmware PS3 (*.PUP)", Pattern: "*.PUP;*.pup"}},
-		})
+	cmd := exec.Command(opener, dir)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("no se pudo abrir %s: %w", dir, err)
 	}
-	if err != nil || path == "" {
-		return "", err
-	}
-	return path, a.store.SetPath(id, path)
+	go cmd.Wait()
+	return nil
 }
 
 // ---- Launch preparation ----
@@ -213,9 +202,8 @@ func (a *App) prepareLaunch(g library.Game) ([]string, error) {
 		return nil, requirementError(g.Console, "no hay un emulador válido configurado para %s", c.ShortName)
 	}
 
-	paths := a.store.Settings().Paths
 	for _, r := range library.RequirementsFor(g.Console) {
-		files, err := r.Check(paths[r.ID])
+		files, err := r.Check(r.Dir())
 		if err != nil {
 			if firmwareInstalled(emu, r.ID) {
 				continue
@@ -239,6 +227,9 @@ func (a *App) prepareLaunch(g library.Game) ([]string, error) {
 
 	if emu == nil {
 		return library.BuildCommand(cfg.Command, g.Path), nil
+	}
+	if err := emu.PrepareFirstRun(); err != nil {
+		return nil, fmt.Errorf("no se pudo preparar la configuración de %s: %w", emu.Name, err)
 	}
 	args := library.SplitCommand(emu.Command)
 	for i, arg := range args {

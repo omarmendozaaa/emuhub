@@ -53,7 +53,6 @@ export namespace library {
 	export class Settings {
 	    minimizeOnLaunch: boolean;
 	    autoCovers: boolean;
-	    paths: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -63,7 +62,6 @@ export namespace library {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.minimizeOnLaunch = source["minimizeOnLaunch"];
 	        this.autoCovers = source["autoCovers"];
-	        this.paths = source["paths"];
 	    }
 	}
 
@@ -139,7 +137,6 @@ export namespace main {
 	export class RequirementStatus {
 	    id: string;
 	    label: string;
-	    kind: string;
 	    hint: string;
 	    path: string;
 	    ok: boolean;
@@ -154,7 +151,6 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.label = source["label"];
-	        this.kind = source["kind"];
 	        this.hint = source["hint"];
 	        this.path = source["path"];
 	        this.ok = source["ok"];

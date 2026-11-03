@@ -61,23 +61,32 @@ compartir como experiencia**. EmuHub quiere ser la puerta de entrada.
 1. **Descarga** el ejecutable de tu sistema desde [Releases](../../releases).
 2. **Ábrelo.** La primera vez prepara los emuladores incluidos (unos segundos).
 3. En **Ajustes** (`O` u *Options*), añade la carpeta de juegos de cada consola y pulsa *Escanear*.
-4. Para PS1, PS2 y PS3, indica dónde están tu BIOS o firmware (ver abajo).
+4. Para PS1, PS2 y PS3, deja tu BIOS o firmware en `~/ROMs/bios/<consola>/` (ver abajo).
 5. Elige un juego y pulsa ✕ / A / Enter.
 
 ### Juegos, BIOS y firmware: lo que NO incluye
 
 EmuHub **no incluye ni distribuye juegos, BIOS ni firmware**: tienen copyright y cada persona debe
 usar copias propias (por ejemplo, volcadas de sus discos y consolas) o juegos homebrew/libres.
-Lo que sí hace es validarlos antes de cada partida:
+Lo que sí hace es validarlos antes de cada partida. La BIOS y el firmware van siempre en la misma
+carpeta, que EmuHub crea al arrancar (en Windows, `~` es tu carpeta de usuario):
+
+```
+~/ROMs/bios/
+├── ps1/    BIOS de PS1, p. ej. SCPH1001.BIN
+├── ps2/    BIOS de PS2
+└── ps3/    PS3UPDAT.PUP
+```
 
 | Requisito | Validación | Qué hace EmuHub |
 |---|---|---|
-| BIOS PS1 (carpeta) | archivos de 512 KB con la firma de Sony | los copia a la carpeta `bios` de DuckStation |
-| BIOS PS2 (carpeta) | archivos de 4 MB con ROMDIR (`RESET`, `ROMVER`) | los copia a la carpeta `bios` de PCSX2 |
+| BIOS PS1 | archivos de 512 KB con la firma de Sony | los copia a la carpeta `bios` de DuckStation |
+| BIOS PS2 | archivos de 4 MB con ROMDIR (`RESET`, `ROMVER`) | los copia a la carpeta `bios` de PCSX2 |
 | Firmware PS3 (`PS3UPDAT.PUP`) | cabecera `SCEUF` | lo instala en RPCS3 la primera vez |
 
 El firmware de PS3 se descarga gratis desde la web oficial de PlayStation. Si falta algo, el juego no
-se lanza y EmuHub abre los ajustes de esa consola indicando qué falta.
+se lanza y EmuHub abre los ajustes de esa consola indicando qué falta. El escáner nunca muestra estos
+archivos como juegos: ignora las BIOS válidas y las carpetas llamadas `bios`, `firmware` o `system`.
 
 ### Primera ejecución en cada sistema
 
@@ -164,12 +173,17 @@ espera la BIOS). `cmd/bundler` descarga cada release, verifica su checksum y la 
 ejecutar nada** (los AppImage se leen directamente como squashfs). El resultado se embebe en el
 binario con `-tags bundle`. Para actualizar un emulador basta con editar el lockfile y subir `bundleVersion`.
 
+`firstRun` evita el asistente inicial de un emulador: si falta su configuración, EmuHub la crea desde una
+plantilla de `internal/bundle/seeds/`, generada por la versión fijada. Si actualizas ese emulador, regenera
+también su plantilla. También añade la asignación de mando (`controls`), que sirve para Xbox y PlayStation
+porque SDL identifica los botones por su posición.
+
 ### Estructura
 
 ```
 main.go, app.go, launch.go   arranque, API expuesta a la UI, validación y lanzamiento
 internal/library/            consolas, escaneo, PARAM.SFO, portadas, requisitos (BIOS/firmware), persistencia
-internal/bundle/             emuladores embebidos: manifiesto, extracción, rutas por sistema
+internal/bundle/             emuladores embebidos: manifiesto, extracción, rutas por sistema, primer arranque
 cmd/bundler/                 empaquetador de emuladores (build-time)
 frontend/src/                interfaz (carrusel, ajustes, entrada de mando)
 emulators.lock.json          versiones fijadas de los emuladores

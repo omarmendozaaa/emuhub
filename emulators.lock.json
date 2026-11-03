@@ -80,21 +80,24 @@
           "sha256": "c5e6f045f6a242082fcafa9f02d56ad895e233b942728788d232ad0c0c765c24",
           "format": "appimage",
           "command": "{root}/AppRun -batch -fullscreen {rom}",
-          "provision": {"ps1.bios": "{xdgdata}/duckstation/bios"}
+          "provision": {"ps1.bios": "{duckstationdir}/bios"},
+          "firstRun": {"config": "{duckstationdir}/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini", "screensaverKey": "InhibitScreensaver"}
         },
         "windows-amd64": {
           "url": "https://github.com/stenzek/duckstation/releases/download/v0.1-12083/duckstation-windows-x64-release.zip",
           "sha256": "c7b126b98c19a87fa5f7068adc26d8f59d8e3266cd7ec5d257d039c8984fbbb8",
           "format": "zip",
           "command": "{root}/duckstation-qt-x64-ReleaseLTCG.exe -batch -fullscreen {rom}",
-          "provision": {"ps1.bios": "{documents}/DuckStation/bios"}
+          "provision": {"ps1.bios": "{documents}/DuckStation/bios"},
+          "firstRun": {"config": "{documents}/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini"}
         },
         "darwin-universal": {
           "url": "https://github.com/stenzek/duckstation/releases/download/v0.1-12083/duckstation-mac-release.zip",
           "sha256": "cd77d80b55276f15340efa1c65df250f8f4d413b68d1c136e48615d780f1249c",
           "format": "zip",
           "command": "{root}/DuckStation.app/Contents/MacOS/DuckStation -batch -fullscreen {rom}",
-          "provision": {"ps1.bios": "{home}/Library/Application Support/DuckStation/bios"}
+          "provision": {"ps1.bios": "{home}/Library/Application Support/DuckStation/bios"},
+          "firstRun": {"config": "{home}/Library/Application Support/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini"}
         }
       }
     },

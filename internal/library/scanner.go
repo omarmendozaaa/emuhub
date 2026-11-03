@@ -16,6 +16,9 @@ const maxScanDepth = 6
 
 var imageExts = []string{".png", ".jpg", ".jpeg", ".webp"}
 
+// systemDirs are folder names that hold BIOS or firmware files, never games.
+var systemDirs = map[string]bool{"bios": true, "firmware": true, "system": true}
+
 func gameID(console, path string) string {
 	h := sha1.Sum([]byte(console + "\x00" + path))
 	return hex.EncodeToString(h[:8])
@@ -67,7 +70,7 @@ func Scan(c *Console, dirs []string) []*Game {
 				if strings.Count(path, string(os.PathSeparator))-rootDepth > maxScanDepth {
 					return filepath.SkipDir
 				}
-				if strings.HasPrefix(d.Name(), ".") && path != root {
+				if path != root && (strings.HasPrefix(d.Name(), ".") || systemDirs[strings.ToLower(d.Name())]) {
 					return filepath.SkipDir
 				}
 				if c.folderGames {
@@ -81,7 +84,7 @@ func Scan(c *Console, dirs []string) []*Game {
 			}
 
 			ext := strings.ToLower(filepath.Ext(path))
-			if !exts[ext] || skip[path] {
+			if !exts[ext] || skip[path] || (ext == ".bin" && isBIOSFile(path, d)) {
 				return nil
 			}
 			base := strings.TrimSuffix(d.Name(), filepath.Ext(d.Name()))
@@ -95,6 +98,15 @@ func Scan(c *Console, dirs []string) []*Game {
 		})
 	}
 	return games
+}
+
+// isBIOSFile catches BIOS dumps left among the games, wherever they are.
+func isBIOSFile(path string, d fs.DirEntry) bool {
+	info, err := d.Info()
+	if err != nil {
+		return false
+	}
+	return isPS1BIOS(path, info.Size()) || isPS2BIOS(path, info.Size())
 }
 
 // markReferenced records the tracks listed in .cue sheets and the discs
