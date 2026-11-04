@@ -19,11 +19,11 @@ export function GetSettings():Promise<library.Settings>;
 
 export function LaunchGame(arg1:string):Promise<void>;
 
+export function OpenBIOSFolder(arg1:string):Promise<void>;
+
 export function PickExecutable():Promise<string>;
 
 export function PickFolder():Promise<string>;
-
-export function PickRequirementPath(arg1:string):Promise<string>;
 
 export function Quit():Promise<void>;
 
@@ -36,8 +36,6 @@ export function SaveConsoleConfig(arg1:string,arg2:string,arg3:string,arg4:Array
 export function SaveSettings(arg1:library.Settings):Promise<void>;
 
 export function ScanLibrary():Promise<number>;
-
-export function SetRequirementPath(arg1:string,arg2:string):Promise<void>;
 
 export function StopGame():Promise<void>;
 

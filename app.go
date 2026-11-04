@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -61,8 +62,14 @@ func NewApp(store *library.Store) *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	if err := library.EnsureBIOSDirs(); err != nil {
+		log.Printf("no se pudieron crear las carpetas de BIOS: %v", err)
+	}
 	a.autoConfigure()
 	go a.installBundle()
+	if a.store.Settings().AutoCovers {
+		go a.fetchMissingCovers()
+	}
 }
 
 // autoConfigure fills in emulators and conventional ROM folders for consoles
@@ -229,6 +236,9 @@ func (a *App) fetchMissingCovers() {
 		if !g.HasCover {
 			missing = append(missing, g)
 		}
+	}
+	if len(missing) == 0 {
+		return
 	}
 	p := CoverProgress{Total: len(missing), Busy: true}
 	runtime.EventsEmit(a.ctx, "covers:progress", p)

@@ -40,6 +40,7 @@ type Platform struct {
 	// emulator reads it from; validated files are copied there before launch.
 	Provision map[string]string `json:"provision,omitempty"`
 	Firmware  *Firmware         `json:"firmware,omitempty"`
+	FirstRun  *FirstRun         `json:"firstRun,omitempty"`
 }
 
 // Firmware describes emulators that must install a firmware package once
@@ -95,7 +96,12 @@ func (e *Emulator) Expand(s string, extra map[string]string) string {
 		xdgData = filepath.Join(home, ".local", "share")
 	}
 	xdgConfig := os.Getenv("XDG_CONFIG_HOME")
-	if xdgConfig == "" {
+	// DuckStation only honours XDG_CONFIG_HOME when it is set; otherwise it
+	// uses ~/.local/share, ignoring XDG_DATA_HOME.
+	duckstationDir := filepath.Join(home, ".local", "share", "duckstation")
+	if xdgConfig != "" {
+		duckstationDir = filepath.Join(xdgConfig, "duckstation")
+	} else {
 		xdgConfig = filepath.Join(home, ".config")
 	}
 	pairs := []string{
@@ -103,6 +109,7 @@ func (e *Emulator) Expand(s string, extra map[string]string) string {
 		"{home}", home,
 		"{xdgdata}", xdgData,
 		"{xdgconfig}", xdgConfig,
+		"{duckstationdir}", duckstationDir,
 		"{documents}", documentsDir(),
 	}
 	for k, v := range extra {

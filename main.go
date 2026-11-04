@@ -17,10 +17,16 @@ import (
 var assets embed.FS
 
 func main() {
-	// WebKitGTK's DMA-BUF renderer crashes with a Wayland protocol error on
-	// NVIDIA drivers; the fallback path is fast enough for this UI.
-	if os.Getenv("WEBKIT_DISABLE_DMABUF_RENDERER") == "" {
-		os.Setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
+	// WebKitGTK's DMA-BUF buffers crash with a Wayland protocol error on NVIDIA
+	// drivers. Its renderer still works with shared-memory buffers, while
+	// WEBKIT_DISABLE_DMABUF_RENDERER drops the UI to about 20 FPS. Composing with
+	// Skia there flashes an old frame whenever the page changes.
+	if _, err := os.Stat("/sys/module/nvidia"); err == nil &&
+		os.Getenv("WEBKIT_DISABLE_DMABUF_RENDERER") == "" && os.Getenv("WEBKIT_DMABUF_RENDERER_FORCE_SHM") == "" {
+		os.Setenv("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1")
+		if os.Getenv("WEBKIT_USE_SKIA_FOR_COMPOSITION") == "" {
+			os.Setenv("WEBKIT_USE_SKIA_FOR_COMPOSITION", "0")
+		}
 	}
 	store, err := library.OpenStore()
 	if err != nil {
@@ -34,6 +40,10 @@ func main() {
 		Height:    860,
 		MinWidth:  640,
 		MinHeight: 400,
+		// Without a maximum, Wails caps the window at the size of the monitor it
+		// started on, so fullscreen on a wider monitor leaves part of it empty.
+		MaxWidth:  16384,
+		MaxHeight: 16384,
 		AssetServer: &assetserver.Options{
 			Assets:     assets,
 			Middleware: app.mediaMiddleware,

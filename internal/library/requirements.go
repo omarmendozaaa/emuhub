@@ -11,33 +11,53 @@ import (
 )
 
 // Requirement is a system file a console needs that EmuHub cannot ship
-// (BIOS dumps, firmware). The user points EmuHub at it and it is validated
-// before every launch.
+// (BIOS dumps, firmware). The user drops it in the console's fixed folder
+// (see BIOSDir) and it is validated before every launch.
 type Requirement struct {
 	ID      string `json:"id"`
 	Console string `json:"console"`
 	Label   string `json:"label"`
-	Kind    string `json:"kind"` // "dir" or "file"
 	Hint    string `json:"hint"`
 	check   func(path string) ([]string, error)
 }
 
 var Requirements = []*Requirement{
 	{
-		ID: "ps1.bios", Console: "ps1", Label: "BIOS de PlayStation", Kind: "dir",
-		Hint:  "Carpeta con un volcado de BIOS de PS1 (p. ej. scph5501.bin, 512 KB) de tu propia consola.",
-		check: checkBIOSDir(isPS1BIOS),
+		ID: "ps1.bios", Console: "ps1", Label: "BIOS de PlayStation",
+		Hint:  "Un volcado de BIOS de PS1 (p. ej. scph5501.bin, 512 KB) de tu propia consola.",
+		check: checkDir(isPS1BIOS),
 	},
 	{
-		ID: "ps2.bios", Console: "ps2", Label: "BIOS de PlayStation 2", Kind: "dir",
-		Hint:  "Carpeta con un volcado de BIOS de PS2 (4 MB) de tu propia consola.",
-		check: checkBIOSDir(isPS2BIOS),
+		ID: "ps2.bios", Console: "ps2", Label: "BIOS de PlayStation 2",
+		Hint:  "Un volcado de BIOS de PS2 (4 MB) de tu propia consola.",
+		check: checkDir(isPS2BIOS),
 	},
 	{
-		ID: "ps3.firmware", Console: "ps3", Label: "Firmware de PlayStation 3", Kind: "file",
-		Hint:  "Archivo PS3UPDAT.PUP, descargable gratis desde la web oficial de PlayStation.",
-		check: checkPUP,
+		ID: "ps3.firmware", Console: "ps3", Label: "Firmware de PlayStation 3",
+		Hint:  "El archivo PS3UPDAT.PUP, descargable gratis desde la web oficial de PlayStation.",
+		check: checkDir(isPS3Firmware),
 	},
+}
+
+// BIOSDir is the fixed folder for a console's BIOS or firmware files:
+// ~/ROMs/bios/<console>.
+func BIOSDir(console string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, "ROMs", "bios", console)
+}
+
+// EnsureBIOSDirs creates the folder of every console that needs system files,
+// so the user only has to drop them in.
+func EnsureBIOSDirs() error {
+	for _, r := range Requirements {
+		if err := os.MkdirAll(BIOSDir(r.Console), 0o755); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func RequirementsFor(console string) []*Requirement {
@@ -59,25 +79,22 @@ func RequirementByID(id string) *Requirement {
 	return nil
 }
 
-// Check validates the configured path and returns the usable files found.
-func (r *Requirement) Check(path string) ([]string, error) {
-	if strings.TrimSpace(path) == "" {
-		return nil, fmt.Errorf("no configurado")
-	}
-	st, err := os.Stat(path)
+// Dir is the folder this requirement's files are expected in.
+func (r *Requirement) Dir() string { return BIOSDir(r.Console) }
+
+// Check validates a folder and returns the usable files found.
+func (r *Requirement) Check(dir string) ([]string, error) {
+	st, err := os.Stat(dir)
 	if err != nil {
-		return nil, fmt.Errorf("no se encuentra %s", path)
+		return nil, fmt.Errorf("no se encuentra la carpeta %s", dir)
 	}
-	if r.Kind == "dir" && !st.IsDir() {
-		return nil, fmt.Errorf("debe ser una carpeta")
+	if !st.IsDir() {
+		return nil, fmt.Errorf("%s debe ser una carpeta", dir)
 	}
-	if r.Kind == "file" && st.IsDir() {
-		return nil, fmt.Errorf("debe ser un archivo")
-	}
-	return r.check(path)
+	return r.check(dir)
 }
 
-func checkBIOSDir(valid func(path string, size int64) bool) func(string) ([]string, error) {
+func checkDir(valid func(path string, size int64) bool) func(string) ([]string, error) {
 	return func(dir string) ([]string, error) {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -98,7 +115,7 @@ func checkBIOSDir(valid func(path string, size int64) bool) func(string) ([]stri
 			}
 		}
 		if len(found) == 0 {
-			return nil, fmt.Errorf("no hay ninguna BIOS válida en la carpeta")
+			return nil, fmt.Errorf("no hay ningún archivo válido en %s", dir)
 		}
 		sort.Strings(found)
 		return found, nil
@@ -124,15 +141,13 @@ func isPS2BIOS(path string, size int64) bool {
 	return err == nil && bytes.Contains(head, []byte("RESET\x00")) && bytes.Contains(head, []byte("ROMVER"))
 }
 
-func checkPUP(path string) ([]string, error) {
+// isPS3Firmware accepts .PUP files with the SCEUF header.
+func isPS3Firmware(path string, _ int64) bool {
+	if !strings.EqualFold(filepath.Ext(path), ".pup") {
+		return false
+	}
 	head, err := readHead(path, 8)
-	if err != nil {
-		return nil, err
-	}
-	if !bytes.HasPrefix(head, []byte("SCEUF")) {
-		return nil, fmt.Errorf("no es un archivo de firmware PUP válido")
-	}
-	return []string{path}, nil
+	return err == nil && bytes.HasPrefix(head, []byte("SCEUF"))
 }
 
 func readHead(path string, n int) ([]byte, error) {

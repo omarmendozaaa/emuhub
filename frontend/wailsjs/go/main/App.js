@@ -34,16 +34,16 @@ export function LaunchGame(arg1) {
   return window['go']['main']['App']['LaunchGame'](arg1);
 }
 
+export function OpenBIOSFolder(arg1) {
+  return window['go']['main']['App']['OpenBIOSFolder'](arg1);
+}
+
 export function PickExecutable() {
   return window['go']['main']['App']['PickExecutable']();
 }
 
 export function PickFolder() {
   return window['go']['main']['App']['PickFolder']();
-}
-
-export function PickRequirementPath(arg1) {
-  return window['go']['main']['App']['PickRequirementPath'](arg1);
 }
 
 export function Quit() {
@@ -68,10 +68,6 @@ export function SaveSettings(arg1) {
 
 export function ScanLibrary() {
   return window['go']['main']['App']['ScanLibrary']();
-}
-
-export function SetRequirementPath(arg1, arg2) {
-  return window['go']['main']['App']['SetRequirementPath'](arg1, arg2);
 }
 
 export function StopGame() {
