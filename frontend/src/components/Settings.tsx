@@ -17,6 +17,7 @@ interface Props {
     bundle: main.BundleState | null
     consoles: main.ConsoleInfo[]
     settings: library.Settings
+    support: main.RemoteSupport | null
     gameCounts: Record<string, number>
     scanning: boolean
     covers: CoverProgress | null
@@ -101,11 +102,31 @@ function General(p: Props) {
                 onChange={v => save({autoCovers: v})}
             />
 
+            <h3>Jugar con amigos</h3>
+            <p className="muted small">
+                Abre una sala desde las opciones de un juego (<b>Invitar a un amigo</b>) y comparte el código. Tu amigo entra con
+                <b> Unirse a una sala</b> y juega con su mando como jugador 2, sin necesitar el juego: lo ve desde tu equipo.
+                {p.support && !p.support.host && <span className="error-text"> No puedes crear salas: {p.support.hostReason}.</span>}
+                {p.support && !p.support.guest && <span className="error-text"> No puedes unirte a salas: {p.support.guestReason}.</span>}
+            </p>
+            <Toggle
+                label="Salas solo en mi red local"
+                hint="Desactivado, EmuHub abre los puertos de la sala en tu router (UPnP) y consulta tu dirección pública para que te encuentren por internet."
+                value={p.settings.remoteLanOnly}
+                onChange={v => save({remoteLanOnly: v})}
+            />
+            <Toggle
+                label="Ver las salas de mis amigos en 1080p"
+                hint="Por defecto 720p, que va más fluido. Actívalo si los dos tenéis buena conexión."
+                value={p.settings.remoteHd}
+                onChange={v => save({remoteHd: v})}
+            />
+
             {p.bundle?.available && (
                 <>
-                    <h3>Emuladores incluidos</h3>
+                    <h3>Programas incluidos</h3>
                     <p className="muted small">
-                        Esta copia de EmuHub trae sus propios emuladores (paquete {p.bundle.version}), así todos usáis las mismas versiones.
+                        Esta copia de EmuHub trae sus propios emuladores y los programas de las salas (paquete {p.bundle.version}), así todos usáis las mismas versiones.
                         {p.bundle.installing && ' Preparándolos…'}
                         {p.bundle.error && <span className="error-text"> {p.bundle.error}</span>}
                     </p>
@@ -131,6 +152,7 @@ function General(p: Props) {
                 <tr><td>Favorito</td><td>F / □ (X)</td></tr>
                 <tr><td>Opciones del juego</td><td>M / Share (View)</td></tr>
                 <tr><td>Reescanear</td><td>R / △ (Y)</td></tr>
+                <tr><td>Unirse a una sala</td><td>J</td></tr>
                 <tr><td>Ajustes</td><td>O / Options (Menu)</td></tr>
                 <tr><td>Atrás</td><td>Esc / ○ (B)</td></tr>
                 </tbody>

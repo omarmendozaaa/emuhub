@@ -26,12 +26,32 @@ export function GetGames() {
   return window['go']['main']['App']['GetGames']();
 }
 
+export function GetRemoteState() {
+  return window['go']['main']['App']['GetRemoteState']();
+}
+
+export function GetRemoteSupport() {
+  return window['go']['main']['App']['GetRemoteSupport']();
+}
+
 export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function HostGame(arg1) {
+  return window['go']['main']['App']['HostGame'](arg1);
+}
+
+export function JoinGame(arg1) {
+  return window['go']['main']['App']['JoinGame'](arg1);
+}
+
 export function LaunchGame(arg1) {
   return window['go']['main']['App']['LaunchGame'](arg1);
+}
+
+export function LeaveGame() {
+  return window['go']['main']['App']['LeaveGame']();
 }
 
 export function OpenBIOSFolder(arg1) {
@@ -72,6 +92,10 @@ export function ScanLibrary() {
 
 export function StopGame() {
   return window['go']['main']['App']['StopGame']();
+}
+
+export function StopHosting() {
+  return window['go']['main']['App']['StopHosting']();
 }
 
 export function ToggleFavorite(arg1) {

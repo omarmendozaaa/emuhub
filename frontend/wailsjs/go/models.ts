@@ -53,6 +53,8 @@ export namespace library {
 	export class Settings {
 	    minimizeOnLaunch: boolean;
 	    autoCovers: boolean;
+	    remoteLanOnly: boolean;
+	    remoteHd: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -62,6 +64,8 @@ export namespace library {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.minimizeOnLaunch = source["minimizeOnLaunch"];
 	        this.autoCovers = source["autoCovers"];
+	        this.remoteLanOnly = source["remoteLanOnly"];
+	        this.remoteHd = source["remoteHd"];
 	    }
 	}
 
@@ -211,6 +215,48 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class RemoteState {
+	    role: string;
+	    phase: string;
+	    gameId: string;
+	    code: string;
+	    guests: number;
+	    message: string;
+	    warning: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RemoteState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.role = source["role"];
+	        this.phase = source["phase"];
+	        this.gameId = source["gameId"];
+	        this.code = source["code"];
+	        this.guests = source["guests"];
+	        this.message = source["message"];
+	        this.warning = source["warning"];
+	    }
+	}
+	export class RemoteSupport {
+	    host: boolean;
+	    hostReason: string;
+	    guest: boolean;
+	    guestReason: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RemoteSupport(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.host = source["host"];
+	        this.hostReason = source["hostReason"];
+	        this.guest = source["guest"];
+	        this.guestReason = source["guestReason"];
+	    }
 	}
 
 }

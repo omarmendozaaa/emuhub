@@ -30,6 +30,7 @@ type App struct {
 	coversBusy  bool
 	bundle      *bundle.Manifest // installed bundled emulators; nil until ready
 	bundleState BundleState
+	remote      remoteSession
 }
 
 type ConsoleInfo struct {
@@ -345,6 +346,8 @@ func (a *App) LaunchGame(id string) error {
 		a.running, a.runningID = nil, ""
 		a.mu.Unlock()
 		a.store.UpdateGame(id, func(x *library.Game) { x.PlaySeconds += int64(elapsed.Seconds()) })
+		// A room lasts for one game: guests must not stay on the host's desktop.
+		a.StopHosting()
 
 		msg := ""
 		// A quick non-zero exit almost always means a bad config or missing BIOS.

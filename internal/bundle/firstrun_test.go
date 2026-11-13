@@ -42,15 +42,20 @@ func TestPrepareFirstRun(t *testing.T) {
 	for _, want := range []string{
 		"SetupWizardIncomplete = false", "CheckAtStartup = false", "InhibitScreensaver = false",
 		"Cross = Keyboard/K", "Cross = SDL-0/A", "L2 = SDL-0/+LeftTrigger", "LUp = SDL-0/-LeftY", "OpenPauseMenu = Keyboard/Escape", "OpenPauseMenu = SDL-0/Guide",
+		"[Pad2]\nUp = SDL-1/DPadUp", "SmallMotor = SDL-1/SmallMotor\nType = AnalogController\n",
 	} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("template lacks %q", want)
 		}
 	}
 
+	if strings.Count(string(b), "[Pad2]") != 1 || strings.Contains(string(b), "Type = None\n\n[Pad3]") {
+		t.Error("the second pad is not enabled exactly once")
+	}
+
 	// An abandoned wizard is cleared without losing the user's settings.
 	// Gamepad bindings the user already set are not touched.
-	existing := "[Main]\nSetupWizardIncomplete = true\nInhibitScreensaver = false\nMine = 1\n\n[Pad1]\nCross = SDL-0/B\n\n[Hotkeys]\nOpenPauseMenu = SDL-1/Start\n"
+	existing := "[Main]\nSetupWizardIncomplete = true\nInhibitScreensaver = false\nMine = 1\n\n[Pad1]\nCross = SDL-0/B\n\n[Pad2]\nType = None\nCross = SDL-3/A\n\n[Hotkeys]\nOpenPauseMenu = SDL-1/Start\n"
 	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +64,7 @@ func TestPrepareFirstRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ = os.ReadFile(path)
-	want := "[Main]\nSetupWizardIncomplete = false\nInhibitScreensaver = true\nMine = 1\n\n[Pad1]\nCross = SDL-0/B\n\n[Hotkeys]\nOpenPauseMenu = SDL-1/Start\n"
+	want := "[Main]\nSetupWizardIncomplete = false\nInhibitScreensaver = true\nMine = 1\n\n[Pad1]\nCross = SDL-0/B\n\n[Pad2]\nType = None\nCross = SDL-3/A\n\n[Hotkeys]\nOpenPauseMenu = SDL-1/Start\n"
 	if got := string(b); got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -78,6 +83,21 @@ func TestPrepareFirstRun(t *testing.T) {
 func TestAddGamepadBindingsKeepsKeyboard(t *testing.T) {
 	got := string(addGamepadBindings([]byte("[Pad1]\nCross = Keyboard/K\n"), []byte("[Pad1]\nCross = SDL-0/A\n\n[Hotkeys]\nX = SDL-0/Y\n")))
 	want := "[Pad1]\nCross = SDL-0/A\nCross = Keyboard/K\n\n[Hotkeys]\nX = SDL-0/Y\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestAddGamepadBindingsReplacesSettings(t *testing.T) {
+	controls := []byte("[Pad2]\nType = AnalogController\nCross = SDL-1/A\n")
+	got := string(addGamepadBindings([]byte("[Pad2]\nType = None\n\n[Pad3]\nType = None\n"), controls))
+	want := "[Pad2]\nCross = SDL-1/A\nType = AnalogController\n\n[Pad3]\nType = None\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	// A config written before EmuHub knew about the second pad gains it.
+	got = string(addGamepadBindings([]byte("[Pad1]\nCross = SDL-0/A\n"), controls))
+	want = "[Pad1]\nCross = SDL-0/A\n\n[Pad2]\nType = AnalogController\nCross = SDL-1/A\n"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

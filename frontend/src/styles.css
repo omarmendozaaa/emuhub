@@ -159,6 +159,19 @@ button { font: inherit; color: inherit; }
 
 .icon-btn:hover { background: rgba(255, 255, 255, 0.2); }
 
+.pill-btn {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 0;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 150ms;
+}
+
+.pill-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
 /* ---------- Carousel ---------- */
 
 .stage { position: relative; z-index: 2; min-height: 0; }
@@ -843,6 +856,79 @@ kbd {
 .game-menu button.active { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6); }
 
 .game-menu button.danger { color: var(--danger); }
+
+/* ---------- Rooms (playing with friends) ---------- */
+
+.room {
+    width: min(520px, 92vw);
+    padding: 28px 30px;
+    border-radius: 20px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+    animation: pop 200ms ease;
+}
+
+.room h2 { margin: 4px 0 12px; font-size: 24px; font-weight: 650; }
+
+.room p { margin: 0 0 12px; line-height: 1.5; }
+
+.room-cover {
+    float: right;
+    width: 84px;
+    max-height: 118px;
+    object-fit: contain;
+    border-radius: 6px;
+    margin: 0 0 10px 16px;
+}
+
+.room-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--muted); }
+
+.room-code {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--line);
+    clear: both;
+}
+
+.room-code code {
+    flex: 1;
+    font: 600 15px ui-monospace, monospace;
+    letter-spacing: 0.02em;
+    background: none;
+    /* Wraps between groups, never inside one. */
+    overflow-wrap: normal;
+    user-select: text;
+}
+
+.room-guests { font-weight: 600; }
+
+.room-warning { color: #ffc46b; font-size: 13px; line-height: 1.45; }
+
+.room-form { display: flex; gap: 10px; margin-bottom: 12px; }
+
+.room-form input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.35);
+    color: inherit;
+    font: 15px ui-monospace, monospace;
+    text-transform: uppercase;
+}
+
+.room-form input:focus { outline: 1.5px solid #5b82ff; }
+
+.room-badge { width: min(460px, 86vw); text-align: center; margin-bottom: 6px; }
+
+.room-badge .room-code { margin: 8px 0; text-align: left; }
 
 /* ---------- Running overlay ---------- */
 

@@ -1,5 +1,5 @@
 {
-  "bundleVersion": "2026.10.30",
+  "bundleVersion": "2026.11.11",
   "emulators": [
     {
       "id": "snes9x",
@@ -172,6 +172,50 @@
             "installed": "{home}/Library/Application Support/rpcs3/dev_flash/vsh/module/vsh.self",
             "install": "{root}/RPCS3.app/Contents/MacOS/rpcs3 --installfw {file}"
           }
+        }
+      }
+    },
+    {
+      "id": "sunshine",
+      "name": "Sunshine",
+      "version": "2026.914.233613",
+      "consoles": [],
+      "license": "GPL-3.0",
+      "source": "https://github.com/LizardByte/Sunshine",
+      "platforms": {
+        "linux-amd64": {
+          "url": "https://github.com/LizardByte/Sunshine/releases/download/v2026.914.233613/Sunshine_2026.914.233613_x86_64.AppImage",
+          "sha256": "6f80297a853bcf8cda114ff131b5c0a8c9a4d96a2a9c3dee1f04c39c54206846",
+          "format": "appimage",
+          "command": "{root}/usr/bin/sunshine"
+        },
+        "windows-amd64": {
+          "url": "https://github.com/LizardByte/Sunshine/releases/download/v2026.914.233613/Sunshine-Windows-AMD64-lite.zip",
+          "sha256": "233008e46f4c0e501a586cbfd6c4fd4a4c0d414a0b5fc7f13c070eb92ec3824b",
+          "format": "zip",
+          "command": "{root}/Sunshine/sunshine.exe"
+        }
+      }
+    },
+    {
+      "id": "moonlight",
+      "name": "Moonlight",
+      "version": "6.2.0",
+      "consoles": [],
+      "license": "GPL-3.0",
+      "source": "https://github.com/moonlight-stream/moonlight-qt",
+      "platforms": {
+        "linux-amd64": {
+          "url": "https://github.com/moonlight-stream/moonlight-qt/releases/download/v6.2.0/Moonlight-6.2.0-x86_64.AppImage",
+          "sha256": "787b0dcbd42ae90620e76fb8d77d7c441ba6473a91c2d7fc3a0fc2466f992437",
+          "format": "appimage",
+          "command": "{root}/AppRun"
+        },
+        "windows-amd64": {
+          "url": "https://github.com/moonlight-stream/moonlight-qt/releases/download/v6.2.0/MoonlightPortable-x64-6.2.0.zip",
+          "sha256": "6f91d268b41ed5ca8066d9d7578dc403b8db190991ff48f00b1700465f8f7ebf",
+          "format": "zip",
+          "command": "{root}/Moonlight.exe"
         }
       }
     }

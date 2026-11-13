@@ -105,6 +105,19 @@ func (m *Manifest) ForConsole(console string) *Emulator {
 	return nil
 }
 
+// ByID returns a bundled program by its lock-file ID, if present.
+func (m *Manifest) ByID(id string) *Emulator {
+	if m == nil {
+		return nil
+	}
+	for i := range m.Emulators {
+		if m.Emulators[i].ID == id {
+			return &m.Emulators[i]
+		}
+	}
+	return nil
+}
+
 // Embedded reads the manifest of the bundled emulators without installing
 // them; Root is not set.
 func Embedded() (*Manifest, error) {

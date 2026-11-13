@@ -27,7 +27,8 @@ type FirstRun struct {
 	Value    string `json:"value"`
 	// Controls is a file in seeds/ with gamepad bindings, added next to the
 	// emulator's keyboard ones. SDL names buttons by position, so the same
-	// bindings serve Xbox and PlayStation pads.
+	// bindings serve Xbox and PlayStation pads. The second pad is the one a
+	// remote guest plays with.
 	Controls string `json:"controls,omitempty"`
 	// ScreensaverKey, in Section, is turned off when the desktop has no
 	// screensaver service; the emulator warns on every game otherwise.
@@ -117,6 +118,8 @@ func addGamepadBindings(ini, controls []byte) []byte {
 
 // addINILines inserts entries at the start of a section, creating it if
 // needed, and does nothing if the section already mentions SDL devices.
+// Entries that are not bindings (a controller type, say) replace the
+// section's current value instead of sitting next to it.
 func addINILines(ini []byte, header string, entries []string) []byte {
 	lines := strings.Split(string(ini), "\n")
 	for i, line := range lines {
@@ -132,15 +135,25 @@ func addINILines(ini []byte, header string, entries []string) []byte {
 				return ini
 			}
 		}
-		added := make([]string, len(entries))
-		for j, entry := range entries {
-			added[j] = entry
-			if strings.HasSuffix(line, "\r") {
-				added[j] += "\r"
+		var added, settings []string
+		for _, entry := range entries {
+			if !strings.Contains(entry, "SDL-") {
+				settings = append(settings, entry)
+				continue
 			}
+			if strings.HasSuffix(line, "\r") {
+				entry += "\r"
+			}
+			added = append(added, entry)
 		}
 		lines = append(lines[:i+1], append(added, lines[i+1:]...)...)
-		return []byte(strings.Join(lines, "\n"))
+		out := []byte(strings.Join(lines, "\n"))
+		for _, entry := range settings {
+			if key, value, ok := strings.Cut(entry, "="); ok {
+				out = setINIValue(out, strings.Trim(header, "[]"), strings.TrimSpace(key), strings.TrimSpace(value))
+			}
+		}
+		return out
 	}
 	return []byte(strings.TrimRight(string(ini), "\r\n") + "\n\n" + header + "\n" + strings.Join(entries, "\n") + "\n")
 }

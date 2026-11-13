@@ -1,14 +1,16 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import type {library, main} from '../wailsjs/go/models'
 import {
-    ChooseCover, FetchCovers, GetBundleInfo, GetConsoles, GetGames, GetSettings, LaunchGame, Quit,
-    RemoveGame, RunningGame, ScanLibrary, StopGame, ToggleFavorite,
+    ChooseCover, FetchCovers, GetBundleInfo, GetConsoles, GetGames, GetRemoteState, GetRemoteSupport, GetSettings,
+    HostGame, JoinGame, LaunchGame, LeaveGame, Quit, RemoveGame, RunningGame, ScanLibrary, StopGame, StopHosting,
+    ToggleFavorite,
 } from '../wailsjs/go/main/App'
 import {EventsOn} from '../wailsjs/runtime/runtime'
 import {Carousel} from './components/Carousel'
 import {GameList} from './components/GameList'
 import {GameMenu, gameMenuItems} from './components/GameMenu'
 import {Glyph, Hint} from './components/Glyph'
+import {GuestSession, HostBadge, HostRoom, JoinRoom} from './components/Remote'
 import {CoverProgress, Settings} from './components/Settings'
 import {Action, blip, useInput} from './input'
 import {backdropUrl, coverUrl, errorText, formatAgo, formatPlaytime, Game} from './util'
@@ -30,7 +32,9 @@ export default function App() {
     const [settings, setSettings] = useState<library.Settings | null>(null)
     const [catIndex, setCatIndex] = useState(0)
     const [focusByCat, setFocusByCat] = useState<Record<string, number>>({})
-    const [panel, setPanel] = useState<'none' | 'settings' | 'menu'>('none')
+    const [panel, setPanel] = useState<'none' | 'settings' | 'menu' | 'join'>('none')
+    const [remote, setRemote] = useState<main.RemoteState | null>(null)
+    const [support, setSupport] = useState<main.RemoteSupport | null>(null)
     const [settingsTab, setSettingsTab] = useState('general')
     const [bundle, setBundle] = useState<main.BundleState | null>(null)
     const [menuIndex, setMenuIndex] = useState(0)
@@ -74,11 +78,18 @@ export default function App() {
         })
         RunningGame().then(setRunning)
         GetBundleInfo().then(setBundle)
+        GetRemoteState().then(setRemote)
+        GetRemoteSupport().then(setSupport)
         const offs = [
             EventsOn('bundle:state', (s: main.BundleState) => {
                 setBundle(s)
-                if (s.ready || s.error) reload()
+                if (s.ready || s.error) {
+                    reload()
+                    GetRemoteSupport().then(setSupport)
+                }
             }),
+            EventsOn('remote:state', (s: main.RemoteState) => setRemote(s)),
+            EventsOn('remote:notice', (n: { text: string, kind: Toast['kind'] }) => toast(n.text, n.kind)),
             EventsOn('firmware:installing', (name: string) => toast(`Instalando el firmware de PS3 en ${name}. Sigue las instrucciones de su ventana.`)),
             EventsOn('library:changed', () => reload()),
             EventsOn('covers:progress', (p: CoverProgress) => setCovers(p)),
@@ -149,23 +160,64 @@ export default function App() {
         setPanel('settings')
     }
 
+    // "REQ:<console>:<message>" means something must be configured first.
+    const launchError = (e: unknown) => {
+        const msg = errorText(e)
+        const m = msg.match(/^REQ:([^:]+):(.*)$/s)
+        if (m) {
+            toast(m[2], 'error')
+            openSettings(m[1])
+        } else {
+            toast(msg, 'error')
+        }
+    }
+
     const play = async (g: Game | undefined = current) => {
         if (!g || running) return
         blip('ok')
         try {
             await LaunchGame(g.id)
         } catch (e) {
-            const msg = errorText(e)
-            // "REQ:<console>:<message>" means something must be configured first.
-            const m = msg.match(/^REQ:([^:]+):(.*)$/s)
-            if (m) {
-                toast(m[2], 'error')
-                openSettings(m[1])
-            } else {
-                toast(msg, 'error')
-            }
+            launchError(e)
         }
     }
+
+    const hosting = remote?.role === 'host'
+    const guest = remote?.role === 'guest'
+
+    // Opens a room for the game; the game starts later from the room itself.
+    const invite = async (g: Game | undefined = current) => {
+        if (!g || running || remote?.role) return
+        if (support && !support.host) {
+            toast(support.hostReason, 'error')
+            return
+        }
+        blip('ok')
+        try {
+            await HostGame(g.id)
+        } catch (e) {
+            launchError(e)
+        }
+    }
+
+    const join = async (code: string) => {
+        try {
+            await JoinGame(code)
+            setPanel('none')
+            return true
+        } catch (e) {
+            toast(errorText(e), 'error')
+            return false
+        }
+    }
+
+    const openJoin = () => {
+        if (running || remote?.role) return
+        blip('ok')
+        setPanel('join')
+    }
+
+    const copied = () => toast('Código copiado')
 
     const toggleFav = async (g: Game | undefined = current) => {
         if (!g) return
@@ -180,6 +232,7 @@ export default function App() {
 
     const menuItems = current ? gameMenuItems(current, {
         play: () => { setPanel('none'); play() },
+        invite: () => { setPanel('none'); invite() },
         favorite: () => { setPanel('none'); toggleFav() },
         cover: async () => {
             setPanel('none')
@@ -200,7 +253,16 @@ export default function App() {
     }) : []
 
     useInput((a: Action) => {
-        if (running) return
+        if (running || guest) return
+        if (hosting) {
+            if (remote.phase === 'open' && a === 'confirm') play(games.find(g => g.id === remote.gameId))
+            if (a === 'back') { blip('back'); StopHosting() }
+            return
+        }
+        if (panel === 'join') {
+            if (a === 'back') { blip('back'); setPanel('none') }
+            return
+        }
         if (panel === 'settings') {
             if (a === 'back' || a === 'options') { blip('back'); setPanel('none') }
             return
@@ -232,6 +294,7 @@ export default function App() {
             case 'triangle': if (!scanning) scan(); break
             case 'options': blip('ok'); openSettings(); break
             case 'share': if (current) { blip('ok'); setMenuIndex(0); setPanel('menu') } break
+            case 'join': openJoin(); break
         }
     })
 
@@ -287,6 +350,7 @@ export default function App() {
                     {covers?.busy && <span className="pill">Portadas {covers.done}/{covers.total}</span>}
                     {scanning && <span className="pill">Escaneando…</span>}
                     <span className="clock">{clock.toLocaleTimeString('es', {hour: '2-digit', minute: '2-digit'})}</span>
+                    <button className="pill-btn" title="Unirse a la sala de un amigo (J)" onClick={openJoin} tabIndex={-1}>Unirse a una sala</button>
                     <button className="icon-btn" title="Ajustes" onClick={() => openSettings()} tabIndex={-1}>⚙</button>
                     <button className="icon-btn" title="Salir" onClick={() => Quit()} tabIndex={-1}>⏻</button>
                 </div>
@@ -347,6 +411,7 @@ export default function App() {
                     bundle={bundle}
                     consoles={consoles}
                     settings={settings}
+                    support={support}
                     gameCounts={gameCounts}
                     scanning={scanning}
                     covers={covers}
@@ -367,9 +432,24 @@ export default function App() {
                     {runningGame?.hasCover && <img src={coverUrl(runningGame)} alt=""/>}
                     <div className="running-label">En juego</div>
                     <div className="running-title">{runningGame?.title}</div>
+                    {hosting && <HostBadge state={remote} onCopied={copied}/>}
                     <button className="btn" onClick={() => StopGame()}>Cerrar juego</button>
                 </div>
             )}
+
+            {hosting && !running && (
+                <HostRoom
+                    state={remote}
+                    game={games.find(g => g.id === remote.gameId)}
+                    onStart={() => play(games.find(g => g.id === remote.gameId))}
+                    onClose={() => StopHosting()}
+                    onCopied={copied}
+                />
+            )}
+
+            {panel === 'join' && !guest && <JoinRoom support={support} onJoin={join} onClose={() => setPanel('none')}/>}
+
+            {guest && <GuestSession state={remote} onLeave={() => LeaveGame()}/>}
 
             {bundle?.installing && (
                 <div className="preparing">

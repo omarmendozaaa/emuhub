@@ -44,6 +44,9 @@ compartir como experiencia**. EmuHub quiere ser la puerta de entrada.
 | **Windows / Linux** | Snes9x 1.63 | RMG 0.9.0 | DuckStation v0.1-12083 | PCSX2 2.8.2 | RPCS3 0.0.43 |
 | **macOS** | Snes9x 1.63 | ares v148 | DuckStation v0.1-12083 | PCSX2 2.8.2 | RPCS3 0.0.43 |
 
+Para las salas en línea, las releases de Windows y Linux incluyen además **Sunshine 2026.914** (anfitrión)
+y **Moonlight 6.2.0** (invitado).
+
 ### Funcionalidades
 
 - 🎮 **Interfaz estilo consola**: carrusel 3D con reflejos, fondo dinámico según el juego, reloj y atajos visibles.
@@ -54,6 +57,8 @@ compartir como experiencia**. EmuHub quiere ser la puerta de entrada.
 - 🖼️ **Portadas automáticas** desde [libretro-thumbnails](https://github.com/libretro-thumbnails), o las tuyas propias.
 - ✅ **Validación antes de jugar**: comprueba BIOS y firmware y los coloca donde cada emulador los espera.
 - ⭐ **Favoritos, recientes y tiempo de juego** por título.
+- 🌐 **Jugar con amigos en línea**: abre una sala, comparte el código y tu amigo juega como jugador 2
+  **sin necesitar el juego**. Ver [Jugar con amigos](#jugar-con-amigos).
 - 🔧 **Emulador propio opcional**: puedes usar cualquier emulador instalado en tu sistema con un comando personalizado.
 
 ## Cómo funciona
@@ -94,6 +99,43 @@ archivos como juegos: ignora las BIOS válidas y las carpetas llamadas `bios`, `
 - **macOS**: descarga la versión `arm64` (Apple Silicon) o `amd64` (Intel). La primera vez: clic derecho → *Abrir*, o `xattr -cr EmuHub.app`.
 - **Linux**: `chmod +x EmuHub-*-linux-x86_64`. Requiere WebKitGTK 4.1 (`libwebkit2gtk-4.1`), presente en casi todos los escritorios.
 
+### Jugar con amigos
+
+Dos personas con EmuHub pueden jugar en línea a cualquier juego con multijugador local. **Solo el
+anfitrión necesita el juego**: su equipo ejecuta el emulador y emite vídeo y audio; el invitado lo ve
+y envía su mando. No se copia ningún archivo del juego al invitado.
+
+1. **Anfitrión**: sobre un juego, abre sus opciones (`M` / Share) → **Invitar a un amigo…**. EmuHub
+   abre una sala y muestra un código como `EH-06XQ-A4G4-0B0A-G4GC`. Envíalo por cualquier chat.
+2. **Invitado**: pulsa **Unirse a una sala** (`J`), pega el código y entra. No hay nada que emparejar
+   ni configurar a mano.
+3. El anfitrión pulsa **Empezar partida**. La sala se cierra sola al salir del juego.
+
+Lo que conviene saber:
+
+- **Mandos**: el anfitrión es el jugador 1 y el mando del invitado aparece en su equipo como un mando
+  de Xbox más (jugador 2). El invitado necesita un mando; su teclado y ratón no se envían. DuckStation
+  ya viene con el segundo mando asignado. En los demás emuladores, asigna una vez el jugador 2 al
+  segundo mando desde sus ajustes de entrada. Si el anfitrión juega con teclado, el mando del invitado
+  será el primero que vea el emulador.
+- **El invitado ve toda la pantalla del anfitrión** mientras la sala está abierta, no solo el juego.
+  Con varios monitores se emite el principal.
+- **Por internet** la sala usa UPnP para abrir los puertos en el router del anfitrión y consulta su IP
+  pública (a `api.ipify.org`) para incluirla en el código. Si el router no tiene UPnP, abre a mano los
+  puertos TCP 47984, 47989 y 48010 y UDP 47998 a 48000. Detrás de CGNAT no funciona: usad una VPN
+  como Tailscale o ZeroTier, cuyas direcciones EmuHub incluye en el código automáticamente. En
+  *Ajustes → Jugar con amigos* puedes limitar las salas a tu red local.
+- **Seguridad**: cada sala tiene un PIN nuevo dentro del código y los emparejados se olvidan al
+  cerrarla, así que un código antiguo no sirve. Tras cinco intentos con un código incorrecto la sala
+  deja de aceptar invitados.
+- **Anfitrión en Windows**: Sunshine necesita el driver [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases)
+  para crear el mando del invitado (se instala una vez) y Windows pedirá permiso de firewall la primera vez.
+- **Anfitrión en Linux**: tu usuario necesita acceso a `/dev/uinput` (`sudo usermod -aG input $USER`).
+  En GNOME y KDE el escritorio pregunta si quieres compartir la pantalla al abrir la sala.
+- **macOS**: solo como invitado, y con [Moonlight](https://moonlight-stream.org) instalado aparte.
+- La sala admite hasta 3 invitados (jugadores 2 a 4), aunque por ahora solo está probada con uno.
+  El invitado recibe 720p a 60 FPS, o 1080p si lo activa en Ajustes.
+
 ### Controles
 
 | Acción | Teclado | Mando |
@@ -104,34 +146,22 @@ archivos como juegos: ignora las BIOS válidas y las carpetas llamadas `bios`, `
 | Favorito | F | □ / X |
 | Menú del juego | M | Share / View |
 | Reescanear | R | △ / Y |
+| Unirse a una sala | J | (n/d) |
 | Ajustes | O | Options / Menu |
 | Atrás | Esc | ○ / B |
 
 ## Hoja de ruta
 
-### 🌐 Juego remoto con amigos (próximamente)
+### 🌐 Juego remoto con amigos
 
-El siguiente gran objetivo es algo en la línea de **Remote Play Together**: jugar en línea con
-amigos a juegos que solo tienen multijugador local, **compartiendo un enlace**.
+La primera versión ya está: salas por streaming desde el anfitrión con Sunshine y Moonlight
+(ver [Jugar con amigos](#jugar-con-amigos)). Lo siguiente:
 
-La idea:
-
-1. El anfitrión abre un juego en EmuHub y pulsa **Invitar**.
-2. EmuHub genera un **enlace o código de sala** que se comparte por cualquier chat.
-3. El invitado lo abre (en su EmuHub o incluso en el navegador) y entra como **jugador 2, 3 o 4**,
-   sin necesitar el juego ni configurar nada.
-
-Enfoques que estamos evaluando:
-
-- **Streaming desde el anfitrión** (estilo Parsec/Moonlight): el anfitrión emite vídeo y audio por
-  WebRTC y recibe los mandos de los invitados. Funciona con cualquier emulador y solo el anfitrión
-  necesita el juego. El reto es la latencia.
-- **Netplay nativo de los emuladores** (rollback/lockstep, como RetroArch o el netplay de
-  RMG/Mupen64Plus): cada jugador ejecuta el emulador en local y se sincronizan las entradas. Latencia
-  mínima, pero todos necesitan el mismo juego y la misma versión del emulador, algo que EmuHub ya
-  garantiza al embeber versiones fijadas.
-- **Servidor de señalización ligero** para crear salas y atravesar NAT (STUN/TURN), de forma que
-  compartir una URL sea suficiente.
+- **Asignar los mandos de los jugadores 2 a 4** automáticamente en todos los emuladores, no solo en DuckStation.
+- **Atravesar NAT sin abrir puertos** (servidor de señalización o relay), para que funcione también con CGNAT.
+- **Elegir el monitor** que se emite y emitir solo la ventana del juego.
+- **Netplay nativo** (rollback/lockstep) donde el emulador lo ofrezca, para menor latencia cuando los
+  dos tienen el juego.
 
 ### Otras ideas
 
@@ -173,6 +203,9 @@ espera la BIOS). `cmd/bundler` descarga cada release, verifica su checksum y la 
 ejecutar nada** (los AppImage se leen directamente como squashfs). El resultado se embebe en el
 binario con `-tags bundle`. Para actualizar un emulador basta con editar el lockfile y subir `bundleVersion`.
 
+Sunshine y Moonlight se fijan en el mismo lockfile (con `consoles` vacío) y `internal/remote` los maneja
+como procesos aparte, cada uno con su configuración aislada de la que el usuario pueda tener instalada.
+
 `firstRun` evita el asistente inicial de un emulador: si falta su configuración, EmuHub la crea desde una
 plantilla de `internal/bundle/seeds/`, generada por la versión fijada. Si actualizas ese emulador, regenera
 también su plantilla. También añade la asignación de mando (`controls`), que sirve para Xbox y PlayStation
@@ -182,6 +215,8 @@ porque SDL identifica los botones por su posición.
 
 ```
 main.go, app.go, launch.go   arranque, API expuesta a la UI, validación y lanzamiento
+remote.go                    salas para jugar con amigos (API expuesta a la UI)
+internal/remote/             código de sala, anfitrión (Sunshine) e invitado (Moonlight)
 internal/library/            consolas, escaneo, PARAM.SFO, portadas, requisitos (BIOS/firmware), persistencia
 internal/bundle/             emuladores embebidos: manifiesto, extracción, rutas por sistema, primer arranque
 cmd/bundler/                 empaquetador de emuladores (build-time)
@@ -195,7 +230,8 @@ El código de EmuHub se publica bajo licencia [MIT](LICENSE).
 
 Los emuladores incluidos conservan sus propias licencias, visibles en *Ajustes → General* con enlace a
 su código fuente: Snes9x (licencia propia, uso no comercial), RMG (GPL-3.0), ares (ISC),
-DuckStation (CC BY-NC-ND 4.0), PCSX2 (GPL-3.0) y RPCS3 (GPL-2.0). Por las licencias no comerciales de
+DuckStation (CC BY-NC-ND 4.0), PCSX2 (GPL-3.0) y RPCS3 (GPL-2.0). Sunshine y Moonlight (ambos GPL-3.0)
+se distribuyen sin modificar y se ejecutan como programas independientes. Por las licencias no comerciales de
 algunos de ellos, **las releases de EmuHub con emuladores embebidos no pueden venderse**.
 
 EmuHub no está afiliado a Nintendo ni a Sony. Todas las marcas pertenecen a sus respectivos dueños.

@@ -15,9 +15,19 @@ export function GetConsoles():Promise<Array<main.ConsoleInfo>>;
 
 export function GetGames():Promise<Array<library.Game>>;
 
+export function GetRemoteState():Promise<main.RemoteState>;
+
+export function GetRemoteSupport():Promise<main.RemoteSupport>;
+
 export function GetSettings():Promise<library.Settings>;
 
+export function HostGame(arg1:string):Promise<main.RemoteState>;
+
+export function JoinGame(arg1:string):Promise<void>;
+
 export function LaunchGame(arg1:string):Promise<void>;
+
+export function LeaveGame():Promise<void>;
 
 export function OpenBIOSFolder(arg1:string):Promise<void>;
 
@@ -38,5 +48,7 @@ export function SaveSettings(arg1:library.Settings):Promise<void>;
 export function ScanLibrary():Promise<number>;
 
 export function StopGame():Promise<void>;
+
+export function StopHosting():Promise<void>;
 
 export function ToggleFavorite(arg1:string):Promise<library.Game>;
