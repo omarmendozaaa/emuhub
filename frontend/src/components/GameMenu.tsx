@@ -11,7 +11,7 @@ export function gameMenuItems(g: Game, h: {
 }): MenuItem[] {
     return [
         {label: 'Jugar', run: h.play},
-        {label: 'Invitar a un amigo…', run: h.invite},
+        {label: 'Invitar amigos…', run: h.invite},
         {label: g.favorite ? 'Quitar de favoritos' : 'Añadir a favoritos', run: h.favorite},
         {label: 'Cambiar portada…', run: h.cover},
         {label: 'Quitar de la biblioteca', danger: true, run: h.remove},

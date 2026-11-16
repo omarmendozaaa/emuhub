@@ -1,16 +1,16 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import type {library, main} from '../wailsjs/go/models'
 import {
-    ChooseCover, FetchCovers, GetBundleInfo, GetConsoles, GetGames, GetRemoteState, GetRemoteSupport, GetSettings,
-    HostGame, JoinGame, LaunchGame, LeaveGame, Quit, RemoveGame, RunningGame, ScanLibrary, StopGame, StopHosting,
-    ToggleFavorite,
+    ChooseCover, FetchCovers, GetBundleInfo, GetConsoles, GetGames, GetRemoteState, GetRemoteSupport, GetRoomLimits,
+    GetSettings, HostGame, JoinGame, LaunchGame, LeaveGame, MoveSeat, Quit, RemoveGame, RunningGame, ScanLibrary,
+    StopGame, StopHosting, ToggleFavorite,
 } from '../wailsjs/go/main/App'
-import {EventsOn} from '../wailsjs/runtime/runtime'
+import {ClipboardSetText, EventsOn} from '../wailsjs/runtime/runtime'
 import {Carousel} from './components/Carousel'
 import {GameList} from './components/GameList'
 import {GameMenu, gameMenuItems} from './components/GameMenu'
 import {Glyph, Hint} from './components/Glyph'
-import {GuestSession, HostBadge, HostRoom, JoinRoom} from './components/Remote'
+import {GuestSession, HostBadge, HostRoom, HostSetup, JoinRoom, playerRange, RoomSetup} from './components/Remote'
 import {CoverProgress, Settings} from './components/Settings'
 import {Action, blip, useInput} from './input'
 import {backdropUrl, coverUrl, errorText, formatAgo, formatPlaytime, Game} from './util'
@@ -35,6 +35,11 @@ export default function App() {
     const [panel, setPanel] = useState<'none' | 'settings' | 'menu' | 'join'>('none')
     const [remote, setRemote] = useState<main.RemoteState | null>(null)
     const [support, setSupport] = useState<main.RemoteSupport | null>(null)
+    // The room being prepared, and in an open room the seat the host has
+    // selected and whether that player is being moved.
+    const [setup, setSetup] = useState<RoomSetup | null>(null)
+    const [seat, setSeat] = useState(0)
+    const [moving, setMoving] = useState(false)
     const [settingsTab, setSettingsTab] = useState('general')
     const [bundle, setBundle] = useState<main.BundleState | null>(null)
     const [menuIndex, setMenuIndex] = useState(0)
@@ -185,7 +190,7 @@ export default function App() {
     const hosting = remote?.role === 'host'
     const guest = remote?.role === 'guest'
 
-    // Opens a room for the game; the game starts later from the room itself.
+    // Asks who plays before opening a room for the game.
     const invite = async (g: Game | undefined = current) => {
         if (!g || running || remote?.role) return
         if (support && !support.host) {
@@ -194,11 +199,34 @@ export default function App() {
         }
         blip('ok')
         try {
-            await HostGame(g.id)
+            const limits = await GetRoomLimits(g.id)
+            setSetup({gameId: g.id, limits, hostPlays: true, players: 2, row: 0})
         } catch (e) {
             launchError(e)
         }
     }
+
+    // Opens the room as prepared; the game starts later from the room itself.
+    const openRoom = async () => {
+        if (!setup) return
+        const {gameId, players, hostPlays} = setup
+        setSetup(null)
+        setSeat(0)
+        setMoving(false)
+        blip('ok')
+        try {
+            await HostGame(gameId, players, hostPlays)
+        } catch (e) {
+            launchError(e)
+        }
+    }
+
+    const copyCode = async () => {
+        if (remote?.code && await ClipboardSetText(remote.code)) copied()
+    }
+
+    const seatCount = remote?.seats?.length ?? 0
+    const canMoveSeat = !!remote?.seatControl && !!remote?.seats?.[seat]?.kind
 
     const join = async (code: string) => {
         try {
@@ -255,8 +283,39 @@ export default function App() {
     useInput((a: Action) => {
         if (running || guest) return
         if (hosting) {
-            if (remote.phase === 'open' && a === 'confirm') play(games.find(g => g.id === remote.gameId))
+            if (remote.phase !== 'open') {
+                if (a === 'back') { blip('back'); StopHosting() }
+                return
+            }
+            if (moving) {
+                if (a === 'up' || a === 'down') { blip('move'); MoveSeat(seat, a === 'up' ? -1 : 1).then(setSeat) }
+                if (a === 'confirm' || a === 'back' || a === 'square') { blip('ok'); setMoving(false) }
+                return
+            }
+            if (a === 'up' && seatCount) { blip('move'); setSeat(s => (s - 1 + seatCount) % seatCount) }
+            if (a === 'down' && seatCount) { blip('move'); setSeat(s => (s + 1) % seatCount) }
+            if (a === 'square' && canMoveSeat) { blip('ok'); setMoving(true) }
+            if (a === 'triangle') copyCode()
+            if (a === 'confirm') play(games.find(g => g.id === remote.gameId))
             if (a === 'back') { blip('back'); StopHosting() }
+            return
+        }
+        if (setup) {
+            const [least, most] = playerRange(setup)
+            const step = a === 'left' ? -1 : a === 'right' ? 1 : 0
+            if (a === 'up' || a === 'down') { blip('move'); setSetup({...setup, row: 1 - setup.row}) }
+            if (step && setup.row === 0) {
+                const hostPlays = step < 0
+                const [lo, hi] = playerRange({...setup, hostPlays})
+                blip('move')
+                setSetup({...setup, hostPlays, players: Math.min(hi, Math.max(lo, setup.players))})
+            }
+            if (step && setup.row === 1) {
+                blip('move')
+                setSetup({...setup, players: Math.min(most, Math.max(least, setup.players + step))})
+            }
+            if (a === 'confirm') openRoom()
+            if (a === 'back') { blip('back'); setSetup(null) }
             return
         }
         if (panel === 'join') {
@@ -441,9 +500,23 @@ export default function App() {
                 <HostRoom
                     state={remote}
                     game={games.find(g => g.id === remote.gameId)}
+                    selected={seat}
+                    moving={moving}
+                    onSelect={setSeat}
+                    onMoving={setMoving}
                     onStart={() => play(games.find(g => g.id === remote.gameId))}
                     onClose={() => StopHosting()}
                     onCopied={copied}
+                />
+            )}
+
+            {setup && !remote?.role && !running && (
+                <HostSetup
+                    setup={setup}
+                    game={games.find(g => g.id === setup.gameId)}
+                    onChange={setSetup}
+                    onOpen={openRoom}
+                    onClose={() => setSetup(null)}
                 />
             )}
 

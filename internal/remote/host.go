@@ -26,8 +26,8 @@ const (
 	// AppName is the single entry Sunshine offers to guests: the host's
 	// screen, where EmuHub runs the emulator.
 	AppName = "EmuHub"
-	// MaxGuests is players 2 to 4.
-	MaxGuests = 3
+	// MaxGuests fills every seat when the host only hosts.
+	MaxGuests = 4
 	// maxFailedPairings stops accepting guests after this many wrong PINs, so
 	// the 4 digit PIN cannot be guessed by trying.
 	maxFailedPairings = 5
@@ -43,6 +43,8 @@ type HostOptions struct {
 	// to the room code. Without it the room only works on the local network
 	// or a VPN.
 	Internet bool
+	// Guests is how many guests the room takes, up to MaxGuests.
+	Guests int
 	// OnGuest is called each time a guest pairs, with the number so far.
 	OnGuest func(guests int)
 	// OnLocked is called when the room stops accepting guests after too many
@@ -88,6 +90,9 @@ func HostSupported() error {
 func StartHost(ctx context.Context, opts HostOptions) (*Host, error) {
 	if err := HostSupported(); err != nil {
 		return nil, err
+	}
+	if opts.Guests <= 0 || opts.Guests > MaxGuests {
+		opts.Guests = MaxGuests
 	}
 	port, err := freePort()
 	if err != nil {
@@ -377,7 +382,7 @@ func (h *Host) pairLoop(ctx context.Context) {
 			h.mu.Lock()
 			n := h.guests
 			h.mu.Unlock()
-			if n >= MaxGuests {
+			if n >= h.opts.Guests {
 				return
 			}
 			var res struct {

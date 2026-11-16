@@ -42,11 +42,14 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 	}
 
 	status("Buscando la sala…")
-	addr, err := reachable(ctx, in)
+	addr, hostID, err := reachable(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	host := fmt.Sprintf("%s:%d", addr, in.Port)
+	if err := forgetOtherHosts(opts.settingsFile(), hostID); err != nil {
+		return nil, fmt.Errorf("no se pudo preparar Moonlight: %w", err)
+	}
 
 	// A guest who comes back in the same session is still paired.
 	if !paired(ctx, opts, host) {
@@ -59,7 +62,7 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 		}
 		// Moonlight exits with 0 either way, so ask the host what it thinks.
 		if !paired(ctx, opts, host) {
-			return nil, fmt.Errorf("el anfitrión no aceptó la conexión. Pídele un código nuevo: caducan al cerrar la sala\n%s", lastLines(out, 2))
+			return nil, fmt.Errorf("ese código es de una sala que ya se cerró, o la sala está completa. Pide al anfitrión el código que aparece ahora en su pantalla\n%s", lastLines(out, 2))
 		}
 	}
 
@@ -142,6 +145,59 @@ func guestEnv(env []string, t Tool, dir string) []string {
 		}
 	}
 	return append(env, "XDG_CONFIG_HOME="+dir)
+}
+
+// settingsFile is where a bundled Moonlight saves the hosts it has met, or ""
+// for a Moonlight the user installed, whose hosts are theirs to keep.
+func (o GuestOptions) settingsFile() string {
+	const folder = "Moonlight Game Streaming Project"
+	switch {
+	case !o.Tool.Isolated:
+		return ""
+	case runtime.GOOS == "linux" && o.Dir != "":
+		return filepath.Join(o.Dir, folder, "Moonlight.conf")
+	case runtime.GOOS == "windows" && o.Tool.Dir != "":
+		// The portable build keeps its settings in its working directory.
+		return filepath.Join(o.Tool.Dir, folder, "Moonlight.ini")
+	}
+	return ""
+}
+
+// forgetOtherHosts drops Moonlight's saved hosts when any of them is not the
+// host being joined. Every room has a new identifier, and Moonlight cannot
+// connect to an address it remembers under a different one: it waits half a
+// minute and then reports a connection failure. The saved host is kept when
+// it is this same room, so a guest who comes back is still paired.
+func forgetOtherHosts(file, hostID string) error {
+	if file == "" || hostID == "" {
+		return nil
+	}
+	b, err := os.ReadFile(file)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var kept []string
+	inHosts, stale := false, false
+	for _, line := range strings.SplitAfter(string(b), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") {
+			inHosts = strings.EqualFold(trimmed, "[hosts]")
+		}
+		if !inHosts {
+			kept = append(kept, line)
+			continue
+		}
+		if key, value, ok := strings.Cut(trimmed, "="); ok && strings.HasSuffix(key, `\uuid`) && !strings.EqualFold(value, hostID) {
+			stale = true
+		}
+	}
+	if !stale {
+		return nil
+	}
+	return os.WriteFile(file, []byte(strings.Join(kept, "")), 0o600)
 }
 
 // ErrNoMoonlight and ErrNoSunshine are returned by callers that could not

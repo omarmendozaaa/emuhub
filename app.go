@@ -314,10 +314,29 @@ func (a *App) LaunchGame(id string) error {
 	if err != nil {
 		return err
 	}
+	// In a room, each seat's gamepad is written into the emulator's config
+	// for this game only.
+	var seated *bundle.Emulator
+	if pads, ok := a.roomSeats(id); ok {
+		if emu := a.seatEmulator(g); emu != nil {
+			if err := emu.ApplySeats(pads); err != nil {
+				return fmt.Errorf("no se pudieron asignar los mandos de la sala: %w", err)
+			}
+			seated = emu
+		}
+	}
+	restoreSeats := func() {
+		if seated != nil {
+			if err := seated.RestoreSeats(); err != nil {
+				log.Printf("no se pudo restaurar la configuración de %s: %v", seated.Name, err)
+			}
+		}
+	}
 
 	a.mu.Lock()
 	if a.running != nil {
 		a.mu.Unlock()
+		restoreSeats()
 		return errors.New("ya hay un juego en ejecución")
 	}
 	cmd := exec.Command(args[0], args[1:]...)
@@ -327,6 +346,7 @@ func (a *App) LaunchGame(id string) error {
 	cmd.Stderr = &tailWriter{buf: &stderr, max: 4096}
 	if err := cmd.Start(); err != nil {
 		a.mu.Unlock()
+		restoreSeats()
 		return fmt.Errorf("no se pudo iniciar el emulador: %w", err)
 	}
 	a.running, a.runningID = cmd, id
@@ -341,6 +361,7 @@ func (a *App) LaunchGame(id string) error {
 
 	go func() {
 		err := cmd.Wait()
+		restoreSeats()
 		elapsed := time.Since(start)
 		a.mu.Lock()
 		a.running, a.runningID = nil, ""

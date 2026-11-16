@@ -81,7 +81,7 @@
           "format": "appimage",
           "command": "{root}/AppRun -batch -fullscreen {rom}",
           "provision": {"ps1.bios": "{duckstationdir}/bios"},
-          "firstRun": {"config": "{duckstationdir}/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini", "screensaverKey": "InhibitScreensaver"}
+          "firstRun": {"config": "{duckstationdir}/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini", "screensaverKey": "InhibitScreensaver", "seats": {"sections": ["Pad1", "Pad2"], "multitap": {"section": "ControllerPorts", "key": "MultitapMode", "on": "Port1Only", "off": "Disabled", "sections": ["Pad1", "Pad3", "Pad4", "Pad5"]}}}
         },
         "windows-amd64": {
           "url": "https://github.com/stenzek/duckstation/releases/download/v0.1-12083/duckstation-windows-x64-release.zip",
@@ -89,7 +89,7 @@
           "format": "zip",
           "command": "{root}/duckstation-qt-x64-ReleaseLTCG.exe -batch -fullscreen {rom}",
           "provision": {"ps1.bios": "{documents}/DuckStation/bios"},
-          "firstRun": {"config": "{documents}/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini"}
+          "firstRun": {"config": "{documents}/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini", "seats": {"sections": ["Pad1", "Pad2"], "multitap": {"section": "ControllerPorts", "key": "MultitapMode", "on": "Port1Only", "off": "Disabled", "sections": ["Pad1", "Pad3", "Pad4", "Pad5"]}}}
         },
         "darwin-universal": {
           "url": "https://github.com/stenzek/duckstation/releases/download/v0.1-12083/duckstation-mac-release.zip",
@@ -97,7 +97,7 @@
           "format": "zip",
           "command": "{root}/DuckStation.app/Contents/MacOS/DuckStation -batch -fullscreen {rom}",
           "provision": {"ps1.bios": "{home}/Library/Application Support/DuckStation/bios"},
-          "firstRun": {"config": "{home}/Library/Application Support/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini"}
+          "firstRun": {"config": "{home}/Library/Application Support/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini", "seats": {"sections": ["Pad1", "Pad2"], "multitap": {"section": "ControllerPorts", "key": "MultitapMode", "on": "Port1Only", "off": "Disabled", "sections": ["Pad1", "Pad3", "Pad4", "Pad5"]}}}
         }
       }
     },

@@ -140,34 +140,52 @@ func inviteAddrs(local []netip.Addr, public netip.Addr, hasPublic bool) []netip.
 }
 
 // reachable returns the first address, in invite order, where the host's
-// Sunshine answers.
-func reachable(ctx context.Context, in Invite) (netip.Addr, error) {
+// Sunshine answers, together with the identifier that Sunshine reports.
+func reachable(ctx context.Context, in Invite) (netip.Addr, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
-	results := make([]chan bool, len(in.Addrs))
+	type answer struct {
+		ok bool
+		id string
+	}
+	results := make([]chan answer, len(in.Addrs))
 	client := &http.Client{}
 	for i, addr := range in.Addrs {
-		results[i] = make(chan bool, 1)
-		go func(ch chan<- bool, url string) {
+		results[i] = make(chan answer, 1)
+		go func(ch chan<- answer, url string) {
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 			if err != nil {
-				ch <- false
+				ch <- answer{}
 				return
 			}
 			resp, err := client.Do(req)
 			if err != nil {
-				ch <- false
+				ch <- answer{}
 				return
 			}
 			b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 			resp.Body.Close()
-			ch <- strings.Contains(string(b), "<hostname>")
+			body := string(b)
+			ch <- answer{ok: strings.Contains(body, "<hostname>"), id: xmlField(body, "uniqueid")}
 		}(results[i], fmt.Sprintf("http://%s:%d/serverinfo", addr, in.Port))
 	}
 	for i, ch := range results {
-		if <-ch {
-			return in.Addrs[i], nil
+		if a := <-ch; a.ok {
+			return in.Addrs[i], a.id, nil
 		}
 	}
-	return netip.Addr{}, fmt.Errorf("no se pudo conectar con el anfitrión. Comprueba que su sala sigue abierta y, si jugáis por internet, que su router tiene UPnP o los puertos abiertos")
+	return netip.Addr{}, "", fmt.Errorf("no se pudo conectar con el anfitrión. Comprueba que su sala sigue abierta y, si jugáis por internet, que su router tiene UPnP o los puertos abiertos")
+}
+
+// xmlField returns the text of the first <name> element in body, or "".
+func xmlField(body, name string) string {
+	_, rest, ok := strings.Cut(body, "<"+name+">")
+	if !ok {
+		return ""
+	}
+	value, _, ok := strings.Cut(rest, "</"+name+">")
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
 }

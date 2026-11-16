@@ -16,6 +16,14 @@ version="$(sed -n 's/.*"bundleVersion": *"\([^"]*\)".*/\1/p' emulators.lock.json
 # The macOS emulator builds are universal, so both Mac targets share them.
 # Each Mac target is built separately: a universal EmuHub binary would carry
 # the embedded emulators twice.
+# Every target embeds the same internal/bundle/data/emulators.zip and shares
+# build/bin, so two builds at once would embed a mixed-up archive.
+if command -v flock >/dev/null; then
+  mkdir -p internal/bundle/data
+  exec 9>internal/bundle/data/.build.lock
+  flock 9
+fi
+
 bundle_platform="$platform"
 case "$platform" in darwin-*) bundle_platform=darwin-universal ;; esac
 

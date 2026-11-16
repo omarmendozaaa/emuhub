@@ -2,6 +2,8 @@ package remote
 
 import (
 	"net/netip"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -96,5 +98,97 @@ func TestCaptureMethod(t *testing.T) {
 		if got := captureMethod(c.wayland, c.desktop); got != c.want {
 			t.Errorf("%+v: got %q", c, got)
 		}
+	}
+}
+
+func TestForgetOtherHosts(t *testing.T) {
+	const general = "[General]\nuniqueid=abc\n\n"
+	const hosts = "[hosts]\n1\\hostname=EmuHub\n1\\uuid=AAAA-1111\nsize=1\n\n"
+	const after = "[other]\nkey=1\n"
+	file := filepath.Join(t.TempDir(), "Moonlight.conf")
+	write := func() {
+		if err := os.WriteFile(file, []byte(general+hosts+after), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read := func() string {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+
+	// The same room keeps its pairing.
+	write()
+	if err := forgetOtherHosts(file, "aaaa-1111"); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != general+hosts+after {
+		t.Errorf("la sala actual se olvidó:\n%s", got)
+	}
+
+	// A host saved under another identifier is dropped, the rest stays.
+	if err := forgetOtherHosts(file, "BBBB-2222"); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != general+after {
+		t.Errorf("quedaron salas antiguas:\n%s", got)
+	}
+
+	// Nothing to do without a settings file or an identifier.
+	if err := forgetOtherHosts(filepath.Join(t.TempDir(), "no.conf"), "x"); err != nil {
+		t.Error(err)
+	}
+	if err := forgetOtherHosts("", "x"); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestSeats(t *testing.T) {
+	if got := GuestSeats(4, false); got != 4 {
+		t.Errorf("solo hosteo, 4 jugadores: %d invitados", got)
+	}
+	if got := GuestSeats(4, true); got != 3 {
+		t.Errorf("anfitrión juega, 4 jugadores: %d invitados", got)
+	}
+	if got := ClampPlayers(1, true, 4); got != 2 {
+		t.Errorf("un anfitrión que juega necesita un invitado: %d", got)
+	}
+	if got := ClampPlayers(9, false, 2); got != 2 {
+		t.Errorf("no más jugadores de los que admite el juego: %d", got)
+	}
+
+	seats := NewSeats(3, true)
+	if !SeatGuest(seats, 1) || !SeatGuest(seats, 2) || SeatGuest(seats, 3) {
+		t.Fatalf("asientos mal repartidos: %+v", seats)
+	}
+	want := []Seat{{Kind: "host"}, {Kind: "guest", Guest: 1}, {Kind: "guest", Guest: 2}}
+	if !reflect.DeepEqual(seats, want) {
+		t.Fatalf("got %+v", seats)
+	}
+	if pos := MoveSeat(seats, 2, -1); pos != 1 || seats[1].Guest != 2 || seats[2].Guest != 1 {
+		t.Errorf("mover no intercambió: pos %d, %+v", pos, seats)
+	}
+	if pos := MoveSeat(seats, 0, -1); pos != 0 {
+		t.Errorf("mover fuera de la sala: %d", pos)
+	}
+}
+
+func TestPadIndexes(t *testing.T) {
+	// The host plays with a pad: it is the first one, guests follow.
+	seats := []Seat{{Kind: "guest", Guest: 2}, {Kind: "host"}, {Kind: "guest", Guest: 1}}
+	if got := PadIndexes(seats, 1); !reflect.DeepEqual(got, []int{2, 0, 1}) {
+		t.Errorf("con mando del anfitrión: %v", got)
+	}
+	// The host plays on the keyboard.
+	if got := PadIndexes(seats, 0); !reflect.DeepEqual(got, []int{1, -1, 0}) {
+		t.Errorf("anfitrión con teclado: %v", got)
+	}
+	// The host only hosts but has a pad plugged in: guests skip it, and free
+	// seats go to the guests still to come.
+	seats = []Seat{{Kind: "guest", Guest: 1}, {}, {}}
+	if got := PadIndexes(seats, 1); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		t.Errorf("solo hosteo: %v", got)
 	}
 }

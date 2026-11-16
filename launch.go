@@ -55,6 +55,11 @@ func (a *App) GetBundleInfo() BundleState {
 func (a *App) installBundle() {
 	m, err := bundle.Embedded()
 	if err != nil {
+		// A binary built with emulators whose archive cannot be read would
+		// otherwise look like one where nothing was ever set up.
+		if bundle.Available() {
+			a.setBundleState(BundleState{Available: true, Error: "Los emuladores incluidos están dañados; vuelve a descargar EmuHub: " + err.Error()})
+		}
 		return
 	}
 	state := BundleState{Available: true, Version: m.BundleVersion}
@@ -71,8 +76,9 @@ func (a *App) installBundle() {
 		state.Ready = true
 		a.mu.Lock()
 		a.bundle = installed
-		a.bundleState = state
 		a.mu.Unlock()
+		// The UI may have asked what is available before this point.
+		a.setBundleState(state)
 		return
 	}
 
@@ -227,6 +233,10 @@ func (a *App) prepareLaunch(g library.Game) ([]string, error) {
 
 	if emu == nil {
 		return library.BuildCommand(cfg.Command, g.Path), nil
+	}
+	// A room that ended badly may have left its gamepad assignment behind.
+	if err := emu.RestoreSeats(); err != nil {
+		return nil, fmt.Errorf("no se pudo restaurar la configuración de %s: %w", emu.Name, err)
 	}
 	if err := emu.PrepareFirstRun(); err != nil {
 		return nil, fmt.Errorf("no se pudo preparar la configuración de %s: %w", emu.Name, err)

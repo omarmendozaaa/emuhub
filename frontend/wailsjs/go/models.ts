@@ -224,6 +224,11 @@ export namespace main {
 	    guests: number;
 	    message: string;
 	    warning: string;
+	    players: number;
+	    hostPlays: boolean;
+	    seats: remote.Seat[];
+	    seatControl: boolean;
+	    multitap: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new RemoteState(source);
@@ -238,7 +243,30 @@ export namespace main {
 	        this.guests = source["guests"];
 	        this.message = source["message"];
 	        this.warning = source["warning"];
+	        this.players = source["players"];
+	        this.hostPlays = source["hostPlays"];
+	        this.seats = this.convertValues(source["seats"], remote.Seat);
+	        this.seatControl = source["seatControl"];
+	        this.multitap = source["multitap"];
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class RemoteSupport {
 	    host: boolean;
@@ -256,6 +284,42 @@ export namespace main {
 	        this.hostReason = source["hostReason"];
 	        this.guest = source["guest"];
 	        this.guestReason = source["guestReason"];
+	    }
+	}
+	
+	export class RoomLimits {
+	    maxPlayers: number;
+	    seatControl: boolean;
+	    multitapOver: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RoomLimits(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.maxPlayers = source["maxPlayers"];
+	        this.seatControl = source["seatControl"];
+	        this.multitapOver = source["multitapOver"];
+	    }
+	}
+
+}
+
+export namespace remote {
+	
+	export class Seat {
+	    kind: string;
+	    guest: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Seat(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.guest = source["guest"];
 	    }
 	}
 

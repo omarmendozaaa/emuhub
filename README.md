@@ -105,19 +105,27 @@ Dos personas con EmuHub pueden jugar en línea a cualquier juego con multijugado
 anfitrión necesita el juego**: su equipo ejecuta el emulador y emite vídeo y audio; el invitado lo ve
 y envía su mando. No se copia ningún archivo del juego al invitado.
 
-1. **Anfitrión**: sobre un juego, abre sus opciones (`M` / Share) → **Invitar a un amigo…**. EmuHub
-   abre una sala y muestra un código como `EH-06XQ-A4G4-0B0A-G4GC`. Envíalo por cualquier chat.
+1. **Anfitrión**: sobre un juego, abre sus opciones (`M` / Share) → **Invitar amigos…**. Elige si
+   juegas tú o solo hosteas y cuántos jugadores hay; EmuHub abre una sala y muestra un código como
+   `EH-06XQ-A4G4-0B0A-G4GC`. Envíalo por cualquier chat.
 2. **Invitado**: pulsa **Unirse a una sala** (`J`), pega el código y entra. No hay nada que emparejar
    ni configurar a mano.
-3. El anfitrión pulsa **Empezar partida**. La sala se cierra sola al salir del juego.
+3. Cada invitado ocupa un asiento (J1, J2…) según llega. El anfitrión pulsa **Empezar partida**
+   cuando quiera. La sala se cierra sola al salir del juego.
 
 Lo que conviene saber:
 
-- **Mandos**: el anfitrión es el jugador 1 y el mando del invitado aparece en su equipo como un mando
-  de Xbox más (jugador 2). El invitado necesita un mando; su teclado y ratón no se envían. DuckStation
-  ya viene con el segundo mando asignado. En los demás emuladores, asigna una vez el jugador 2 al
-  segundo mando desde sus ajustes de entrada. Si el anfitrión juega con teclado, el mando del invitado
-  será el primero que vea el emulador.
+- **Jugadores**: una sala admite hasta 4 invitados. Si el anfitrión juega ocupa un asiento; si solo
+  hostea, todos los asientos son de los invitados. Cada invitado necesita un mando: su teclado y ratón
+  no se envían.
+- **Asientos en PS1 (DuckStation incluido)**: el anfitrión puede mover a cada jugador de asiento antes
+  de empezar (`F` / Cuadrado), y EmuHub escribe esa asignación de mandos en DuckStation solo para esa
+  partida. Con más de 2 jugadores activa el multitap en el puerto 1. Al cerrar el juego la
+  configuración de DuckStation vuelve a como estaba. Los asientos quedan fijos al empezar la partida.
+- **Asientos en los demás emuladores**: el número de jugador lo decide el orden en que el emulador ve
+  los mandos (primero los del anfitrión, luego los invitados según entran), y hay que asignar una vez
+  cada jugador a su mando desde los ajustes de entrada del emulador. Para hostear sin jugar, apaga tu
+  mando antes de abrir la sala.
 - **El invitado ve toda la pantalla del anfitrión** mientras la sala está abierta, no solo el juego.
   Con varios monitores se emite el principal.
 - **Por internet** la sala usa UPnP para abrir los puertos en el router del anfitrión y consulta su IP
@@ -133,7 +141,7 @@ Lo que conviene saber:
 - **Anfitrión en Linux**: tu usuario necesita acceso a `/dev/uinput` (`sudo usermod -aG input $USER`).
   En GNOME y KDE el escritorio pregunta si quieres compartir la pantalla al abrir la sala.
 - **macOS**: solo como invitado, y con [Moonlight](https://moonlight-stream.org) instalado aparte.
-- La sala admite hasta 3 invitados (jugadores 2 a 4), aunque por ahora solo está probada con uno.
+- La sala admite hasta 4 invitados, aunque por ahora solo está probada jugando con uno; con varios, falta confirmar en una partida real que cada mando llega al asiento elegido.
   El invitado recibe 720p a 60 FPS, o 1080p si lo activa en Ajustes.
 
 ### Controles

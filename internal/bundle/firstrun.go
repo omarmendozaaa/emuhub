@@ -33,6 +33,8 @@ type FirstRun struct {
 	// ScreensaverKey, in Section, is turned off when the desktop has no
 	// screensaver service; the emulator warns on every game otherwise.
 	ScreensaverKey string `json:"screensaverKey,omitempty"`
+	// Seats lets a room choose which gamepad plays as which player.
+	Seats *SeatControls `json:"seats,omitempty"`
 }
 
 var screensaverService = defaultScreensaverService

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,6 +27,25 @@ type RemoteState struct {
 	Guests  int    `json:"guests"`
 	Message string `json:"message"`
 	Warning string `json:"warning"`
+	// Players is how many seats the host's room has and HostPlays whether
+	// the host takes one of them.
+	Players   int           `json:"players"`
+	HostPlays bool          `json:"hostPlays"`
+	Seats     []remote.Seat `json:"seats"`
+	// SeatControl says EmuHub assigns each seat's gamepad in the emulator.
+	// Without it the emulator numbers players as their gamepads show up.
+	SeatControl bool `json:"seatControl"`
+	// Multitap says this room needs the emulator's multitap.
+	Multitap bool `json:"multitap"`
+}
+
+// RoomLimits tells the UI what a room for a game can be like.
+type RoomLimits struct {
+	MaxPlayers  int  `json:"maxPlayers"`
+	SeatControl bool `json:"seatControl"`
+	// MultitapOver is the player count above which the emulator's multitap
+	// is used, or 0 when it never is.
+	MultitapOver int `json:"multitapOver"`
 }
 
 // RemoteSupport tells the UI what this machine can do, with the reason when
@@ -43,6 +63,9 @@ type remoteSession struct {
 	host   *remote.Host
 	guest  *remote.Guest
 	cancel context.CancelFunc
+	// hostPads is how many gamepads the host had when the room opened; the
+	// guests' gamepads are numbered after them.
+	hostPads int
 }
 
 // remoteTool finds Sunshine or Moonlight: the copy shipped with EmuHub, or
@@ -97,10 +120,17 @@ func (a *App) GetRemoteSupport() RemoteSupport {
 	return s
 }
 
-// missingTool explains a missing tool, which right after an update may only
-// mean the bundle is still being unpacked.
+// missingTool explains a missing tool, which in a copy that ships them only
+// means the bundle is still being loaded or unpacked, or failed to unpack.
 func (a *App) missingTool(err error) string {
-	if a.GetBundleInfo().Installing {
+	if !bundle.Available() {
+		return err.Error()
+	}
+	info := a.GetBundleInfo()
+	if info.Error != "" {
+		return info.Error
+	}
+	if !info.Ready {
 		return "los programas incluidos aún se están preparando, espera un momento"
 	}
 	return err.Error()
@@ -140,14 +170,54 @@ func remoteDir(name string) (string, error) {
 
 // ---- Hosting ----
 
+// seatEmulator returns the game's emulator when EmuHub can assign its
+// gamepads to seats.
+func (a *App) seatEmulator(g library.Game) *bundle.Emulator {
+	if a.store.ConsoleConfig(g.Console).Emulator != "bundled" {
+		return nil
+	}
+	if emu := a.bundledFor(g.Console); emu.MaxSeats() > 0 {
+		return emu
+	}
+	return nil
+}
+
+func (a *App) roomLimits(g library.Game) RoomLimits {
+	l := RoomLimits{MaxPlayers: 2}
+	if c := library.ConsoleByID(g.Console); c != nil && c.MaxPlayers > 0 {
+		l.MaxPlayers = c.MaxPlayers
+	}
+	if emu := a.seatEmulator(g); emu != nil {
+		l.SeatControl = true
+		l.MaxPlayers = emu.MaxSeats()
+		if s := emu.FirstRun.Seats; s.Multitap != nil && len(s.Multitap.Sections) > len(s.Sections) {
+			l.MultitapOver = len(s.Sections)
+		}
+	}
+	l.MaxPlayers = min(l.MaxPlayers, remote.MaxSeats)
+	return l
+}
+
+// GetRoomLimits tells how many players a room for this game can have.
+func (a *App) GetRoomLimits(id string) (RoomLimits, error) {
+	g, ok := a.store.Game(id)
+	if !ok {
+		return RoomLimits{}, errors.New("juego no encontrado")
+	}
+	return a.roomLimits(g), nil
+}
+
 // HostGame opens a room for a game: it starts streaming this screen and
-// returns the code to share. The game itself starts with LaunchGame, so the
-// host can wait for the guest first.
-func (a *App) HostGame(id string) (RemoteState, error) {
+// returns the code to share. players is how many seats the room has and
+// hostPlays whether the host takes one. The game itself starts with
+// LaunchGame, so the host can wait for the guests first.
+func (a *App) HostGame(id string, players int, hostPlays bool) (RemoteState, error) {
 	g, ok := a.store.Game(id)
 	if !ok {
 		return RemoteState{}, errors.New("juego no encontrado")
 	}
+	limits := a.roomLimits(g)
+	players = remote.ClampPlayers(players, hostPlays, limits.MaxPlayers)
 	if a.RunningGame() != "" {
 		return RemoteState{}, errors.New("cierra el juego en ejecución antes de abrir una sala")
 	}
@@ -171,7 +241,16 @@ func (a *App) HostGame(id string) (RemoteState, error) {
 		cancel()
 		return RemoteState{}, errors.New("ya hay una sala abierta")
 	}
-	a.remote = remoteSession{state: RemoteState{Role: "host", Phase: "starting", GameID: id}, cancel: cancel}
+	a.remote = remoteSession{
+		state: RemoteState{
+			Role: "host", Phase: "starting", GameID: id,
+			Players: players, HostPlays: hostPlays, Seats: remote.NewSeats(players, hostPlays),
+			SeatControl: limits.SeatControl,
+			Multitap:    limits.MultitapOver > 0 && players > limits.MultitapOver,
+		},
+		cancel:   cancel,
+		hostPads: remote.Gamepads(),
+	}
 	state := a.remote.state
 	a.mu.Unlock()
 	runtime.EventsEmit(a.ctx, "remote:state", state)
@@ -180,9 +259,27 @@ func (a *App) HostGame(id string) (RemoteState, error) {
 		Tool:     tool,
 		Dir:      dir,
 		Internet: !a.store.Settings().RemoteLANOnly,
+		Guests:   remote.GuestSeats(players, hostPlays),
 		OnGuest: func(n int) {
-			a.setRemote(func(s *remoteSession) { s.state.Guests = n })
-			a.remoteNotice("Un invitado se ha unido a la sala", "info")
+			seat := 0
+			a.setRemote(func(s *remoteSession) {
+				s.state.Guests = n
+				// The UI gets its own copy: it reads the old one meanwhile.
+				seats := append([]remote.Seat{}, s.state.Seats...)
+				if remote.SeatGuest(seats, n) {
+					s.state.Seats = seats
+				}
+				for i, st := range seats {
+					if st.Kind == "guest" && st.Guest == n {
+						seat = i + 1
+					}
+				}
+			})
+			if seat > 0 {
+				a.remoteNotice(fmt.Sprintf("Invitado %d se ha unido: jugador %d", n, seat), "info")
+			} else {
+				a.remoteNotice("Un invitado se ha unido a la sala", "info")
+			}
 		},
 		OnLocked: func() {
 			a.setRemote(func(s *remoteSession) {
@@ -229,6 +326,37 @@ func (a *App) HostGame(id string) (RemoteState, error) {
 		}
 	}()
 	return state, nil
+}
+
+// MoveSeat swaps a seat with the one before (delta -1) or after (delta 1) it
+// and returns where it ended up. Seats are fixed once the game starts: the
+// emulator has read its gamepad assignment by then.
+func (a *App) MoveSeat(index, delta int) int {
+	if a.RunningGame() != "" {
+		return index
+	}
+	pos := index
+	a.setRemote(func(s *remoteSession) {
+		if s.state.Role != "host" || !s.state.SeatControl {
+			return
+		}
+		seats := append([]remote.Seat{}, s.state.Seats...)
+		pos = remote.MoveSeat(seats, index, delta)
+		s.state.Seats = seats
+	})
+	return pos
+}
+
+// roomSeats returns the gamepad of each seat when a room is open for this
+// game, in the emulator's numbering.
+func (a *App) roomSeats(gameID string) ([]int, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	s := a.remote.state
+	if s.Role != "host" || s.GameID != gameID || !s.SeatControl || len(s.Seats) == 0 {
+		return nil, false
+	}
+	return remote.PadIndexes(s.Seats, a.remote.hostPads), true
 }
 
 // StopHosting closes the room. A running game keeps going for the host.
