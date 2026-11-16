@@ -200,3 +200,27 @@ func TestPrepareFirstRunProfiles(t *testing.T) {
 		t.Errorf("ajustes del emulador alterados:\n%s", cfg[:200])
 	}
 }
+
+func TestPrepareFirstRunSettings(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mupen64plus.cfg")
+	gui := "Rosalie's Mupen GUI"
+	if err := os.WriteFile(path, []byte("["+gui+"]\nPauseEmulationOnFocusLoss = True\nResumeEmulationOnFocus = True\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	emu := &Emulator{Platform: Platform{FirstRun: &FirstRun{
+		Config:   path,
+		Settings: []Setting{{Section: gui, Key: "PauseEmulationOnFocusLoss", Value: "False"}},
+	}}}
+	// The user may turn it back on in the emulator; every launch turns it off.
+	for range 2 {
+		if err := emu.PrepareFirstRun(); err != nil {
+			t.Fatal(err)
+		}
+		b, _ := os.ReadFile(path)
+		got := section(string(b), gui)
+		if !strings.Contains(got, "PauseEmulationOnFocusLoss = False") || !strings.Contains(got, "ResumeEmulationOnFocus = True") {
+			t.Fatalf("ajustes:\n%s", b)
+		}
+		os.WriteFile(path, []byte(strings.Replace(string(b), "= False", "= True", 1)), 0o644)
+	}
+}

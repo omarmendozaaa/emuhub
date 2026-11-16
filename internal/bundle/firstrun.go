@@ -42,6 +42,16 @@ type FirstRun struct {
 	Profiles string `json:"profiles,omitempty"`
 	// Seats lets a room choose which gamepad plays as which player.
 	Seats *SeatControls `json:"seats,omitempty"`
+	// Settings are written on every launch, for options whose default gets
+	// in the way of playing from EmuHub or in a room.
+	Settings []Setting `json:"settings,omitempty"`
+}
+
+// Setting is one key of an emulator's INI config.
+type Setting struct {
+	Section string `json:"section"`
+	Key     string `json:"key"`
+	Value   string `json:"value"`
 }
 
 var screensaverService = defaultScreensaverService
@@ -80,6 +90,9 @@ func (e *Emulator) PrepareFirstRun() error {
 	updated := current
 	if e.FirstRun.Key != "" {
 		updated = setINIValue(updated, e.FirstRun.Section, e.FirstRun.Key, e.FirstRun.Value)
+	}
+	for _, st := range e.FirstRun.Settings {
+		updated = setINIValue(updated, st.Section, st.Key, st.Value)
 	}
 	if e.FirstRun.Profiles != "" {
 		profiles, err := seeds.ReadFile("seeds/" + e.FirstRun.Profiles)

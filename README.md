@@ -124,15 +124,22 @@ Lo que conviene saber:
   configuración de DuckStation vuelve a como estaba. Los asientos quedan fijos al empezar la partida.
 - **Asientos en N64 (RMG incluido)**: EmuHub deja los 4 puertos de RMG en automático con el mando ya
   mapeado, así que cada jugador recibe un mando sin configurar nada: primero los del anfitrión y luego
-  los invitados según entran. RMG solo mira qué mandos hay al arrancar el juego, de modo que quien entre
-  después no juega hasta reiniciarlo: espera a que estén todos antes de **Empezar partida**. Para hostear
-  sin jugar, apaga tu mando antes de abrir la sala.
+  los invitados según pulsan su primer botón. RMG solo mira qué mandos hay al arrancar el juego, y el
+  mando de un invitado no existe en tu equipo hasta que pulsa algo, así que al **Empezar partida**
+  EmuHub espera (hasta 30 s) a que cada invitado pulse un botón antes de abrir RMG. Quien entre con el
+  juego ya en marcha no juega hasta reiniciarlo. RMG ya no se pausa al perder el foco, para que la
+  partida siga aunque el anfitrión cambie de ventana. Para hostear sin jugar, apaga tu mando antes de
+  abrir la sala.
 - **Asientos en los demás emuladores**: el número de jugador lo decide el orden en que el emulador ve
   los mandos (primero los del anfitrión, luego los invitados según entran), y hay que asignar una vez
   cada jugador a su mando desde los ajustes de entrada del emulador. Para hostear sin jugar, apaga tu
   mando antes de abrir la sala.
 - **El invitado ve toda la pantalla del anfitrión** mientras la sala está abierta, no solo el juego.
   Con varios monitores se emite el principal.
+- **Audio**: en Linux el invitado oye solo el juego. EmuHub crea una salida virtual (`EmuHub-juego`)
+  para el emulador, la emite y la reenvía a tus altavoces, así que el resto del escritorio (Discord u
+  otra llamada) no llega al invitado y no se oye doble. Necesita `pactl` (PulseAudio o PipeWire). En
+  Windows se emite todo el audio del equipo.
 - **Por internet** la sala usa UPnP para abrir los puertos en el router del anfitrión y consulta su IP
   pública (a `api.ipify.org`) para incluirla en el código. Si el router no tiene UPnP, abre a mano los
   puertos TCP 47984, 47989 y 48010 y UDP 47998 a 48000. Detrás de CGNAT no funciona: usad una VPN
@@ -225,7 +232,9 @@ plantilla de `internal/bundle/seeds/`, generada por la versión fijada. Si actua
 también su plantilla. También añade la asignación de mando (`controls`), que sirve para Xbox y PlayStation
 porque SDL identifica los botones por su posición. Para los emuladores que guardan el dispositivo y los
 botones de cada jugador en una misma sección (RMG), `profiles` añade esas secciones enteras solo si faltan,
-sin tocar las que el usuario ya haya configurado en el emulador.
+sin tocar las que el usuario ya haya configurado en el emulador. `settings` fija claves en cada lanzamiento
+(en RMG, que no se pause al perder el foco), y `padsAtStart` marca los emuladores que solo detectan los
+mandos al arrancar, para que una sala espere los de los invitados.
 
 Mapeo de N64 en RMG (`rmg-controls.cfg`), los 4 puertos en automático: stick izquierdo = stick analógico,
 cruceta = cruceta, A = A, X = B, stick derecho = botones C (además B = C abajo e Y = C izquierda), LB = L,

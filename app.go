@@ -314,6 +314,7 @@ func (a *App) LaunchGame(id string) error {
 	if err != nil {
 		return err
 	}
+	a.waitGuestPads(g)
 	// In a room, each seat's gamepad is written into the emulator's config
 	// for this game only.
 	var seated *bundle.Emulator
@@ -341,6 +342,9 @@ func (a *App) LaunchGame(id string) error {
 	}
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Dir = filepath.Dir(g.Path)
+	if env := a.roomGameEnv(); env != nil {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	var stderr bytes.Buffer
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = &tailWriter{buf: &stderr, max: 4096}
@@ -351,6 +355,7 @@ func (a *App) LaunchGame(id string) error {
 	}
 	a.running, a.runningID = cmd, id
 	a.mu.Unlock()
+	a.roomGameStarted(cmd.Process.Pid)
 
 	start := time.Now()
 	a.store.UpdateGame(id, func(x *library.Game) { x.LastPlayed = start.Unix() })
