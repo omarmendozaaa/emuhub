@@ -50,6 +50,7 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 8, G: 10, B: 28, A: 1},
 		OnStartup:        app.startup,
+		OnShutdown:       app.shutdown,
 		Bind:             []interface{}{app},
 		Linux: &linux.Options{
 			ProgramName:      "emuhub",

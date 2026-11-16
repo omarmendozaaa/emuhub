@@ -48,6 +48,11 @@ type ConsoleConfig struct {
 type Settings struct {
 	MinimizeOnLaunch bool `json:"minimizeOnLaunch"`
 	AutoCovers       bool `json:"autoCovers"`
+	// RemoteLANOnly keeps rooms off the internet: no UPnP and no public
+	// address in the room code.
+	RemoteLANOnly bool `json:"remoteLanOnly"`
+	// RemoteHD receives rooms at 1080p instead of 720p.
+	RemoteHD bool `json:"remoteHd"`
 }
 
 type fileData struct {

@@ -3,7 +3,7 @@ import {useEffect, useRef} from 'react'
 export type Action =
     | 'left' | 'right' | 'up' | 'down'
     | 'confirm' | 'back' | 'triangle' | 'square'
-    | 'options' | 'share' | 'l1' | 'r1'
+    | 'options' | 'share' | 'l1' | 'r1' | 'join'
 
 const keyMap: Record<string, Action> = {
     ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
@@ -14,6 +14,7 @@ const keyMap: Record<string, Action> = {
     o: 'options', F2: 'options',
     m: 'share', ContextMenu: 'share',
     q: 'l1', e: 'r1', PageUp: 'l1', PageDown: 'r1',
+    j: 'join',
 }
 
 // Standard gamepad mapping (Xbox / DualShock / DualSense via SDL/libmanette).

@@ -1,5 +1,5 @@
 {
-  "bundleVersion": "2026.10.30",
+  "bundleVersion": "2026.11.11",
   "emulators": [
     {
       "id": "snes9x",
@@ -41,13 +41,15 @@
           "url": "https://github.com/Rosalie241/RMG/releases/download/v0.9.0/RMG-Portable-Linux64-v0.9.0.AppImage",
           "sha256": "43ce15e11404aaff313ec44ca03601e5e753bba3b355c38a7c67a4344d517aca",
           "format": "appimage",
-          "command": "{root}/AppRun --fullscreen --quit-after-emulation {rom}"
+          "command": "{root}/AppRun --fullscreen --quit-after-emulation {rom}",
+          "firstRun": {"config": "{xdgconfig}/RMG/mupen64plus.cfg", "section": "Rosalie's Mupen GUI", "key": "ConfirmExitWhileInGame", "value": "False", "profiles": "rmg-controls.cfg"}
         },
         "windows-amd64": {
           "url": "https://github.com/Rosalie241/RMG/releases/download/v0.9.0/RMG-Portable-Windows64-v0.9.0.zip",
           "sha256": "f81640a0ae7474c0915f263d1acac20cf816ac8666f897cbf3710cd485a9027d",
           "format": "zip",
-          "command": "{root}/RMG.exe --fullscreen --quit-after-emulation {rom}"
+          "command": "{root}/RMG.exe --fullscreen --quit-after-emulation {rom}",
+          "firstRun": {"config": "{root}/Config/mupen64plus.cfg", "section": "Rosalie's Mupen GUI", "key": "ConfirmExitWhileInGame", "value": "False", "profiles": "rmg-controls.cfg"}
         }
       }
     },
@@ -81,7 +83,7 @@
           "format": "appimage",
           "command": "{root}/AppRun -batch -fullscreen {rom}",
           "provision": {"ps1.bios": "{duckstationdir}/bios"},
-          "firstRun": {"config": "{duckstationdir}/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini", "screensaverKey": "InhibitScreensaver"}
+          "firstRun": {"config": "{duckstationdir}/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini", "screensaverKey": "InhibitScreensaver", "seats": {"sections": ["Pad1", "Pad2"], "multitap": {"section": "ControllerPorts", "key": "MultitapMode", "on": "Port1Only", "off": "Disabled", "sections": ["Pad1", "Pad3", "Pad4", "Pad5"]}}}
         },
         "windows-amd64": {
           "url": "https://github.com/stenzek/duckstation/releases/download/v0.1-12083/duckstation-windows-x64-release.zip",
@@ -89,7 +91,7 @@
           "format": "zip",
           "command": "{root}/duckstation-qt-x64-ReleaseLTCG.exe -batch -fullscreen {rom}",
           "provision": {"ps1.bios": "{documents}/DuckStation/bios"},
-          "firstRun": {"config": "{documents}/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini"}
+          "firstRun": {"config": "{documents}/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini", "seats": {"sections": ["Pad1", "Pad2"], "multitap": {"section": "ControllerPorts", "key": "MultitapMode", "on": "Port1Only", "off": "Disabled", "sections": ["Pad1", "Pad3", "Pad4", "Pad5"]}}}
         },
         "darwin-universal": {
           "url": "https://github.com/stenzek/duckstation/releases/download/v0.1-12083/duckstation-mac-release.zip",
@@ -97,7 +99,7 @@
           "format": "zip",
           "command": "{root}/DuckStation.app/Contents/MacOS/DuckStation -batch -fullscreen {rom}",
           "provision": {"ps1.bios": "{home}/Library/Application Support/DuckStation/bios"},
-          "firstRun": {"config": "{home}/Library/Application Support/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini"}
+          "firstRun": {"config": "{home}/Library/Application Support/DuckStation/settings.ini", "template": "duckstation.ini", "section": "Main", "key": "SetupWizardIncomplete", "value": "false", "controls": "duckstation-controls.ini", "seats": {"sections": ["Pad1", "Pad2"], "multitap": {"section": "ControllerPorts", "key": "MultitapMode", "on": "Port1Only", "off": "Disabled", "sections": ["Pad1", "Pad3", "Pad4", "Pad5"]}}}
         }
       }
     },
@@ -172,6 +174,50 @@
             "installed": "{home}/Library/Application Support/rpcs3/dev_flash/vsh/module/vsh.self",
             "install": "{root}/RPCS3.app/Contents/MacOS/rpcs3 --installfw {file}"
           }
+        }
+      }
+    },
+    {
+      "id": "sunshine",
+      "name": "Sunshine",
+      "version": "2026.914.233613",
+      "consoles": [],
+      "license": "GPL-3.0",
+      "source": "https://github.com/LizardByte/Sunshine",
+      "platforms": {
+        "linux-amd64": {
+          "url": "https://github.com/LizardByte/Sunshine/releases/download/v2026.914.233613/Sunshine_2026.914.233613_x86_64.AppImage",
+          "sha256": "6f80297a853bcf8cda114ff131b5c0a8c9a4d96a2a9c3dee1f04c39c54206846",
+          "format": "appimage",
+          "command": "{root}/usr/bin/sunshine"
+        },
+        "windows-amd64": {
+          "url": "https://github.com/LizardByte/Sunshine/releases/download/v2026.914.233613/Sunshine-Windows-AMD64-lite.zip",
+          "sha256": "233008e46f4c0e501a586cbfd6c4fd4a4c0d414a0b5fc7f13c070eb92ec3824b",
+          "format": "zip",
+          "command": "{root}/Sunshine/sunshine.exe"
+        }
+      }
+    },
+    {
+      "id": "moonlight",
+      "name": "Moonlight",
+      "version": "6.2.0",
+      "consoles": [],
+      "license": "GPL-3.0",
+      "source": "https://github.com/moonlight-stream/moonlight-qt",
+      "platforms": {
+        "linux-amd64": {
+          "url": "https://github.com/moonlight-stream/moonlight-qt/releases/download/v6.2.0/Moonlight-6.2.0-x86_64.AppImage",
+          "sha256": "787b0dcbd42ae90620e76fb8d77d7c441ba6473a91c2d7fc3a0fc2466f992437",
+          "format": "appimage",
+          "command": "{root}/AppRun"
+        },
+        "windows-amd64": {
+          "url": "https://github.com/moonlight-stream/moonlight-qt/releases/download/v6.2.0/MoonlightPortable-x64-6.2.0.zip",
+          "sha256": "6f91d268b41ed5ca8066d9d7578dc403b8db190991ff48f00b1700465f8f7ebf",
+          "format": "zip",
+          "command": "{root}/Moonlight.exe"
         }
       }
     }

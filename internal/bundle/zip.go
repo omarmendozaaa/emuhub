@@ -13,10 +13,13 @@ import (
 // WriteZip packs a directory tree, keeping executable bits and symlinks
 // (macOS app bundles rely on framework symlinks).
 func WriteZip(srcDir, dst string) error {
-	out, err := os.Create(dst)
+	// Written aside and renamed, so a build never embeds a half-written
+	// archive, not even when two of them are packaging at once.
+	out, err := os.CreateTemp(filepath.Dir(dst), filepath.Base(dst)+".*.part")
 	if err != nil {
 		return err
 	}
+	defer os.Remove(out.Name())
 	defer out.Close()
 	zw := zip.NewWriter(out)
 
@@ -74,7 +77,16 @@ func WriteZip(srcDir, dst string) error {
 		zw.Close()
 		return err
 	}
-	return zw.Close()
+	if err := zw.Close(); err != nil {
+		return err
+	}
+	if err := out.Chmod(0o644); err != nil {
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Rename(out.Name(), dst)
 }
 
 // ExtractZip unpacks every entry of zr into dst. progress receives the bytes

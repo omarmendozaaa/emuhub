@@ -10,13 +10,16 @@ import (
 // Console describes a supported platform: which files count as games and
 // which emulators can run them.
 type Console struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	ShortName   string   `json:"shortName"`
-	Maker       string   `json:"maker"`
-	Accent      string   `json:"accent"`
-	Extensions  []string `json:"extensions"`
-	LibretroDB  string   `json:"-"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	ShortName  string   `json:"shortName"`
+	Maker      string   `json:"maker"`
+	Accent     string   `json:"accent"`
+	Extensions []string `json:"extensions"`
+	LibretroDB string   `json:"-"`
+	// MaxPlayers is how many gamepads the console takes without extra
+	// hardware such as a multitap.
+	MaxPlayers  int `json:"maxPlayers"`
 	candidates  []candidate
 	folderGames bool // PS3 games are usually extracted folders, not single files
 }
@@ -35,6 +38,7 @@ type candidate struct {
 var Consoles = []*Console{
 	{
 		ID: "snes", Name: "Super Nintendo", ShortName: "SNES", Maker: "Nintendo", Accent: "#7b5cff",
+		MaxPlayers: 2,
 		Extensions: []string{".sfc", ".smc", ".fig", ".swc", ".bs", ".zip", ".7z"},
 		LibretroDB: "Nintendo - Super Nintendo Entertainment System",
 		candidates: []candidate{
@@ -45,6 +49,7 @@ var Consoles = []*Console{
 	},
 	{
 		ID: "n64", Name: "Nintendo 64", ShortName: "N64", Maker: "Nintendo", Accent: "#21b35b",
+		MaxPlayers: 4,
 		Extensions: []string{".z64", ".n64", ".v64", ".zip", ".7z"},
 		LibretroDB: "Nintendo - Nintendo 64",
 		candidates: []candidate{
@@ -56,6 +61,7 @@ var Consoles = []*Console{
 	},
 	{
 		ID: "ps1", Name: "PlayStation", ShortName: "PS1", Maker: "Sony", Accent: "#9aa4b5",
+		MaxPlayers: 2,
 		Extensions: []string{".cue", ".chd", ".pbp", ".m3u", ".iso", ".img", ".ecm", ".bin"},
 		LibretroDB: "Sony - PlayStation",
 		candidates: []candidate{
@@ -66,6 +72,7 @@ var Consoles = []*Console{
 	},
 	{
 		ID: "ps2", Name: "PlayStation 2", ShortName: "PS2", Maker: "Sony", Accent: "#2f6bff",
+		MaxPlayers: 2,
 		Extensions: []string{".iso", ".chd", ".cso", ".zso", ".gz", ".cue", ".bin", ".elf"},
 		LibretroDB: "Sony - PlayStation 2",
 		candidates: []candidate{
@@ -74,6 +81,7 @@ var Consoles = []*Console{
 	},
 	{
 		ID: "ps3", Name: "PlayStation 3", ShortName: "PS3", Maker: "Sony", Accent: "#e23b3b",
+		MaxPlayers:  4,
 		Extensions:  []string{".iso"},
 		LibretroDB:  "Sony - PlayStation 3",
 		folderGames: true,

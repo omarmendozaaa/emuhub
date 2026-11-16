@@ -1,14 +1,16 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import type {library, main} from '../wailsjs/go/models'
 import {
-    ChooseCover, FetchCovers, GetBundleInfo, GetConsoles, GetGames, GetSettings, LaunchGame, Quit,
-    RemoveGame, RunningGame, ScanLibrary, StopGame, ToggleFavorite,
+    ChooseCover, FetchCovers, GetBundleInfo, GetConsoles, GetGames, GetRemoteState, GetRemoteSupport, GetRoomLimits,
+    GetSettings, HostGame, JoinGame, LaunchGame, LeaveGame, MoveSeat, Quit, RemoveGame, RunningGame, ScanLibrary,
+    StopGame, StopHosting, ToggleFavorite,
 } from '../wailsjs/go/main/App'
-import {EventsOn} from '../wailsjs/runtime/runtime'
+import {ClipboardSetText, EventsOn} from '../wailsjs/runtime/runtime'
 import {Carousel} from './components/Carousel'
 import {GameList} from './components/GameList'
 import {GameMenu, gameMenuItems} from './components/GameMenu'
 import {Glyph, Hint} from './components/Glyph'
+import {GuestSession, HostBadge, HostRoom, HostSetup, JoinRoom, playerRange, RoomSetup} from './components/Remote'
 import {CoverProgress, Settings} from './components/Settings'
 import {Action, blip, useInput} from './input'
 import {backdropUrl, coverUrl, errorText, formatAgo, formatPlaytime, Game} from './util'
@@ -30,7 +32,14 @@ export default function App() {
     const [settings, setSettings] = useState<library.Settings | null>(null)
     const [catIndex, setCatIndex] = useState(0)
     const [focusByCat, setFocusByCat] = useState<Record<string, number>>({})
-    const [panel, setPanel] = useState<'none' | 'settings' | 'menu'>('none')
+    const [panel, setPanel] = useState<'none' | 'settings' | 'menu' | 'join'>('none')
+    const [remote, setRemote] = useState<main.RemoteState | null>(null)
+    const [support, setSupport] = useState<main.RemoteSupport | null>(null)
+    // The room being prepared, and in an open room the seat the host has
+    // selected and whether that player is being moved.
+    const [setup, setSetup] = useState<RoomSetup | null>(null)
+    const [seat, setSeat] = useState(0)
+    const [moving, setMoving] = useState(false)
     const [settingsTab, setSettingsTab] = useState('general')
     const [bundle, setBundle] = useState<main.BundleState | null>(null)
     const [menuIndex, setMenuIndex] = useState(0)
@@ -74,11 +83,18 @@ export default function App() {
         })
         RunningGame().then(setRunning)
         GetBundleInfo().then(setBundle)
+        GetRemoteState().then(setRemote)
+        GetRemoteSupport().then(setSupport)
         const offs = [
             EventsOn('bundle:state', (s: main.BundleState) => {
                 setBundle(s)
-                if (s.ready || s.error) reload()
+                if (s.ready || s.error) {
+                    reload()
+                    GetRemoteSupport().then(setSupport)
+                }
             }),
+            EventsOn('remote:state', (s: main.RemoteState) => setRemote(s)),
+            EventsOn('remote:notice', (n: { text: string, kind: Toast['kind'] }) => toast(n.text, n.kind)),
             EventsOn('firmware:installing', (name: string) => toast(`Instalando el firmware de PS3 en ${name}. Sigue las instrucciones de su ventana.`)),
             EventsOn('library:changed', () => reload()),
             EventsOn('covers:progress', (p: CoverProgress) => setCovers(p)),
@@ -149,23 +165,87 @@ export default function App() {
         setPanel('settings')
     }
 
+    // "REQ:<console>:<message>" means something must be configured first.
+    const launchError = (e: unknown) => {
+        const msg = errorText(e)
+        const m = msg.match(/^REQ:([^:]+):(.*)$/s)
+        if (m) {
+            toast(m[2], 'error')
+            openSettings(m[1])
+        } else {
+            toast(msg, 'error')
+        }
+    }
+
     const play = async (g: Game | undefined = current) => {
         if (!g || running) return
         blip('ok')
         try {
             await LaunchGame(g.id)
         } catch (e) {
-            const msg = errorText(e)
-            // "REQ:<console>:<message>" means something must be configured first.
-            const m = msg.match(/^REQ:([^:]+):(.*)$/s)
-            if (m) {
-                toast(m[2], 'error')
-                openSettings(m[1])
-            } else {
-                toast(msg, 'error')
-            }
+            launchError(e)
         }
     }
+
+    const hosting = remote?.role === 'host'
+    const guest = remote?.role === 'guest'
+
+    // Asks who plays before opening a room for the game.
+    const invite = async (g: Game | undefined = current) => {
+        if (!g || running || remote?.role) return
+        if (support && !support.host) {
+            toast(support.hostReason, 'error')
+            return
+        }
+        blip('ok')
+        try {
+            const limits = await GetRoomLimits(g.id)
+            setSetup({gameId: g.id, limits, hostPlays: true, players: 2, row: 0})
+        } catch (e) {
+            launchError(e)
+        }
+    }
+
+    // Opens the room as prepared; the game starts later from the room itself.
+    const openRoom = async () => {
+        if (!setup) return
+        const {gameId, players, hostPlays} = setup
+        setSetup(null)
+        setSeat(0)
+        setMoving(false)
+        blip('ok')
+        try {
+            await HostGame(gameId, players, hostPlays)
+        } catch (e) {
+            launchError(e)
+        }
+    }
+
+    const copyCode = async () => {
+        if (remote?.code && await ClipboardSetText(remote.code)) copied()
+    }
+
+    const seatCount = remote?.seats?.length ?? 0
+    const canMoveSeat = !!remote?.seatControl && !!remote?.seats?.[seat]?.kind
+
+    const join = async (code: string) => {
+        try {
+            await JoinGame(code)
+            setPanel('none')
+            return true
+        } catch (e) {
+            toast(errorText(e), 'error')
+            return false
+        }
+    }
+
+    const openJoin = () => {
+        if (running || remote?.role) return
+        blip('ok')
+        setPanel('join')
+    }
+
+    const copied = () => toast('Código copiado')
 
     const toggleFav = async (g: Game | undefined = current) => {
         if (!g) return
@@ -180,6 +260,7 @@ export default function App() {
 
     const menuItems = current ? gameMenuItems(current, {
         play: () => { setPanel('none'); play() },
+        invite: () => { setPanel('none'); invite() },
         favorite: () => { setPanel('none'); toggleFav() },
         cover: async () => {
             setPanel('none')
@@ -200,7 +281,47 @@ export default function App() {
     }) : []
 
     useInput((a: Action) => {
-        if (running) return
+        if (running || guest) return
+        if (hosting) {
+            if (remote.phase !== 'open') {
+                if (a === 'back') { blip('back'); StopHosting() }
+                return
+            }
+            if (moving) {
+                if (a === 'up' || a === 'down') { blip('move'); MoveSeat(seat, a === 'up' ? -1 : 1).then(setSeat) }
+                if (a === 'confirm' || a === 'back' || a === 'square') { blip('ok'); setMoving(false) }
+                return
+            }
+            if (a === 'up' && seatCount) { blip('move'); setSeat(s => (s - 1 + seatCount) % seatCount) }
+            if (a === 'down' && seatCount) { blip('move'); setSeat(s => (s + 1) % seatCount) }
+            if (a === 'square' && canMoveSeat) { blip('ok'); setMoving(true) }
+            if (a === 'triangle') copyCode()
+            if (a === 'confirm') play(games.find(g => g.id === remote.gameId))
+            if (a === 'back') { blip('back'); StopHosting() }
+            return
+        }
+        if (setup) {
+            const [least, most] = playerRange(setup)
+            const step = a === 'left' ? -1 : a === 'right' ? 1 : 0
+            if (a === 'up' || a === 'down') { blip('move'); setSetup({...setup, row: 1 - setup.row}) }
+            if (step && setup.row === 0) {
+                const hostPlays = step < 0
+                const [lo, hi] = playerRange({...setup, hostPlays})
+                blip('move')
+                setSetup({...setup, hostPlays, players: Math.min(hi, Math.max(lo, setup.players))})
+            }
+            if (step && setup.row === 1) {
+                blip('move')
+                setSetup({...setup, players: Math.min(most, Math.max(least, setup.players + step))})
+            }
+            if (a === 'confirm') openRoom()
+            if (a === 'back') { blip('back'); setSetup(null) }
+            return
+        }
+        if (panel === 'join') {
+            if (a === 'back') { blip('back'); setPanel('none') }
+            return
+        }
         if (panel === 'settings') {
             if (a === 'back' || a === 'options') { blip('back'); setPanel('none') }
             return
@@ -232,6 +353,7 @@ export default function App() {
             case 'triangle': if (!scanning) scan(); break
             case 'options': blip('ok'); openSettings(); break
             case 'share': if (current) { blip('ok'); setMenuIndex(0); setPanel('menu') } break
+            case 'join': openJoin(); break
         }
     })
 
@@ -287,6 +409,7 @@ export default function App() {
                     {covers?.busy && <span className="pill">Portadas {covers.done}/{covers.total}</span>}
                     {scanning && <span className="pill">Escaneando…</span>}
                     <span className="clock">{clock.toLocaleTimeString('es', {hour: '2-digit', minute: '2-digit'})}</span>
+                    <button className="pill-btn" title="Unirse a la sala de un amigo (J)" onClick={openJoin} tabIndex={-1}>Unirse a una sala</button>
                     <button className="icon-btn" title="Ajustes" onClick={() => openSettings()} tabIndex={-1}>⚙</button>
                     <button className="icon-btn" title="Salir" onClick={() => Quit()} tabIndex={-1}>⏻</button>
                 </div>
@@ -347,6 +470,7 @@ export default function App() {
                     bundle={bundle}
                     consoles={consoles}
                     settings={settings}
+                    support={support}
                     gameCounts={gameCounts}
                     scanning={scanning}
                     covers={covers}
@@ -367,9 +491,38 @@ export default function App() {
                     {runningGame?.hasCover && <img src={coverUrl(runningGame)} alt=""/>}
                     <div className="running-label">En juego</div>
                     <div className="running-title">{runningGame?.title}</div>
+                    {hosting && <HostBadge state={remote} onCopied={copied}/>}
                     <button className="btn" onClick={() => StopGame()}>Cerrar juego</button>
                 </div>
             )}
+
+            {hosting && !running && (
+                <HostRoom
+                    state={remote}
+                    game={games.find(g => g.id === remote.gameId)}
+                    selected={seat}
+                    moving={moving}
+                    onSelect={setSeat}
+                    onMoving={setMoving}
+                    onStart={() => play(games.find(g => g.id === remote.gameId))}
+                    onClose={() => StopHosting()}
+                    onCopied={copied}
+                />
+            )}
+
+            {setup && !remote?.role && !running && (
+                <HostSetup
+                    setup={setup}
+                    game={games.find(g => g.id === setup.gameId)}
+                    onChange={setSetup}
+                    onOpen={openRoom}
+                    onClose={() => setSetup(null)}
+                />
+            )}
+
+            {panel === 'join' && !guest && <JoinRoom support={support} onJoin={join} onClose={() => setPanel('none')}/>}
+
+            {guest && <GuestSession state={remote} onLeave={() => LeaveGame()}/>}
 
             {bundle?.installing && (
                 <div className="preparing">
