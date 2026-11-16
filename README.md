@@ -122,6 +122,11 @@ Lo que conviene saber:
   de empezar (`F` / Cuadrado), y EmuHub escribe esa asignación de mandos en DuckStation solo para esa
   partida. Con más de 2 jugadores activa el multitap en el puerto 1. Al cerrar el juego la
   configuración de DuckStation vuelve a como estaba. Los asientos quedan fijos al empezar la partida.
+- **Asientos en N64 (RMG incluido)**: EmuHub deja los 4 puertos de RMG en automático con el mando ya
+  mapeado, así que cada jugador recibe un mando sin configurar nada: primero los del anfitrión y luego
+  los invitados según entran. RMG solo mira qué mandos hay al arrancar el juego, de modo que quien entre
+  después no juega hasta reiniciarlo: espera a que estén todos antes de **Empezar partida**. Para hostear
+  sin jugar, apaga tu mando antes de abrir la sala.
 - **Asientos en los demás emuladores**: el número de jugador lo decide el orden en que el emulador ve
   los mandos (primero los del anfitrión, luego los invitados según entran), y hay que asignar una vez
   cada jugador a su mando desde los ajustes de entrada del emulador. Para hostear sin jugar, apaga tu
@@ -165,7 +170,8 @@ Lo que conviene saber:
 La primera versión ya está: salas por streaming desde el anfitrión con Sunshine y Moonlight
 (ver [Jugar con amigos](#jugar-con-amigos)). Lo siguiente:
 
-- **Asignar los mandos de los jugadores 2 a 4** automáticamente en todos los emuladores, no solo en DuckStation.
+- **Asignar los mandos de los jugadores 2 a 4** automáticamente en todos los emuladores, no solo en DuckStation y RMG.
+- **Elegir asiento en N64**: RMG reparte los mandos por orden de conexión y no deja fijar cuál va a cada puerto.
 - **Atravesar NAT sin abrir puertos** (servidor de señalización o relay), para que funcione también con CGNAT.
 - **Elegir el monitor** que se emite y emitir solo la ventana del juego.
 - **Netplay nativo** (rollback/lockstep) donde el emulador lo ofrezca, para menor latencia cuando los
@@ -217,7 +223,14 @@ como procesos aparte, cada uno con su configuración aislada de la que el usuari
 `firstRun` evita el asistente inicial de un emulador: si falta su configuración, EmuHub la crea desde una
 plantilla de `internal/bundle/seeds/`, generada por la versión fijada. Si actualizas ese emulador, regenera
 también su plantilla. También añade la asignación de mando (`controls`), que sirve para Xbox y PlayStation
-porque SDL identifica los botones por su posición.
+porque SDL identifica los botones por su posición. Para los emuladores que guardan el dispositivo y los
+botones de cada jugador en una misma sección (RMG), `profiles` añade esas secciones enteras solo si faltan,
+sin tocar las que el usuario ya haya configurado en el emulador.
+
+Mapeo de N64 en RMG (`rmg-controls.cfg`), los 4 puertos en automático: stick izquierdo = stick analógico,
+cruceta = cruceta, A = A, X = B, stick derecho = botones C (además B = C abajo e Y = C izquierda), LB = L,
+RB = R, cualquiera de los dos gatillos = Z y Start = Start. El jugador 1 conserva además el teclado
+(flechas, X, C, Z, Intro, A/S para L/R, IJKL para los C y TFGH para la cruceta).
 
 ### Estructura
 

@@ -117,3 +117,86 @@ func TestDuckStationDir(t *testing.T) {
 		t.Errorf("without XDG_CONFIG_HOME: %s", got)
 	}
 }
+
+func TestPrepareFirstRunProfiles(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "RMG", "mupen64plus.cfg")
+	emu := &Emulator{Platform: Platform{FirstRun: &FirstRun{
+		Config: path, Section: "Rosalie's Mupen GUI", Key: "ConfirmExitWhileInGame", Value: "False",
+		Profiles: "rmg-controls.cfg",
+	}}}
+	read := func() string {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	profile := func(n string) string { return "Rosalie's Mupen GUI - Input Plugin Profile " + n }
+
+	// Without a config the emulator has no player plugged in at all.
+	if err := emu.PrepareFirstRun(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := read()
+	if !strings.Contains(section(cfg, "Rosalie's Mupen GUI"), "ConfirmExitWhileInGame = False") {
+		t.Errorf("falta el ajuste de salida:\n%s", cfg)
+	}
+	for _, n := range []string{"0", "1", "2", "3"} {
+		p := section(cfg, profile(n))
+		for _, want := range []string{"PluggedIn = True", "DeviceType = 2", `A_Data = "0`, `ZTrigger_Name = "lefttrigger+;righttrigger+`, `AnalogStickUp_Name = "lefty-`} {
+			if !strings.Contains(p, want) {
+				t.Errorf("jugador %s sin %q", n, want)
+			}
+		}
+		// Only the first player also plays on the keyboard.
+		if got := strings.Contains(p, `A_InputType = "0;-1"`); got != (n == "0") {
+			t.Errorf("jugador %s: teclado = %v", n, got)
+		}
+	}
+	// Every list of a binding has one entry per input.
+	for _, line := range strings.Split(cfg, "\n") {
+		key, value, ok := strings.Cut(line, " = ")
+		if !ok || !strings.HasSuffix(key, "_Name") {
+			continue
+		}
+		base := strings.TrimSuffix(key, "_Name")
+		n := strings.Count(value, ";")
+		p := cfg[:strings.Index(cfg, line)]
+		p = cfg[strings.LastIndex(p, "["):]
+		for _, suffix := range []string{"_InputType", "_Data", "_ExtraData"} {
+			_, rest, _ := strings.Cut(p, base+suffix+" = ")
+			v, _, _ := strings.Cut(rest, "\n")
+			if strings.Count(v, ";") != n {
+				t.Fatalf("%s%s = %s no cuadra con %s", base, suffix, v, value)
+			}
+		}
+	}
+
+	// A second launch changes nothing.
+	if err := emu.PrepareFirstRun(); err != nil {
+		t.Fatal(err)
+	}
+	if read() != cfg {
+		t.Error("la configuración cambió en el segundo arranque")
+	}
+
+	// A player the user set up in the emulator is kept, and the emulator's
+	// own settings stay where they are.
+	existing := "[Core]\nVersion = 1.010000\n\n[" + profile("0") + "]\nPluggedIn = True\nDeviceType = 4\nA_Data = \"7\"\n\n[Rosalie's Mupen GUI]\nConfirmExitWhileInGame = True\nTheme = \"Native\"\n"
+	if err := os.WriteFile(path, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := emu.PrepareFirstRun(); err != nil {
+		t.Fatal(err)
+	}
+	cfg = read()
+	if p := section(cfg, profile("0")); p != "PluggedIn = True\nDeviceType = 4\nA_Data = \"7\"\n" {
+		t.Errorf("se tocó el jugador del usuario:\n%s", p)
+	}
+	if !strings.Contains(section(cfg, profile("3")), "DeviceType = 2") || strings.Count(cfg, "["+profile("1")+"]") != 1 {
+		t.Error("faltan los demás jugadores")
+	}
+	if !strings.HasPrefix(cfg, "[Core]\nVersion = 1.010000\n") || !strings.Contains(cfg, "ConfirmExitWhileInGame = False\nTheme = \"Native\"") {
+		t.Errorf("ajustes del emulador alterados:\n%s", cfg[:200])
+	}
+}
