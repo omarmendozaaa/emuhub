@@ -14,15 +14,31 @@ import (
 )
 
 // CheckServer validates the address of a signaling server as the user
-// typed it in the settings: the Worker's URL from signal/, optionally with
-// ?key=… when the Worker is protected with a key. Empty means none.
-// The key lets the host open rooms and never leaves this machine.
+// typed it in the settings: the Worker's URL from signal/. Empty means none.
 func CheckServer(server string) error {
 	if strings.TrimSpace(server) == "" {
 		return nil
 	}
 	_, err := parseServer(server)
 	return err
+}
+
+// WithKey joins the server's address and its access key, kept apart in the
+// settings, into the address the host dials: the key goes as ?key=…. The
+// key lets the host open rooms and never leaves this machine.
+func WithKey(server, key string) string {
+	server, key = strings.TrimSpace(server), strings.TrimSpace(key)
+	if server == "" || key == "" {
+		return server
+	}
+	u, err := url.Parse(server)
+	if err != nil {
+		return server
+	}
+	q := u.Query()
+	q.Set("key", key)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func parseServer(server string) (*url.URL, error) {
@@ -60,7 +76,7 @@ func roomURL(server string, secret []byte, role string) (string, error) {
 }
 
 var (
-	errBadServerKey = errors.New("el servidor de salas rechazó la clave: revisa la dirección en Ajustes → Jugar con amigos, con su ?key=")
+	errBadServerKey = errors.New("el servidor de salas rechazó la clave: revisa la clave en Ajustes → Jugar con amigos")
 
 	errNotAServer    = errors.New("la dirección de Ajustes → Jugar con amigos no es un servidor de salas de EmuHub")
 	errServerTooLong = errors.New("la dirección del servidor de salas es demasiado larga")

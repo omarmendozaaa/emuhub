@@ -55,6 +55,7 @@ export namespace library {
 	    autoCovers: boolean;
 	    remoteHd: boolean;
 	    remoteServer: string;
+	    remoteKey: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -66,6 +67,7 @@ export namespace library {
 	        this.autoCovers = source["autoCovers"];
 	        this.remoteHd = source["remoteHd"];
 	        this.remoteServer = source["remoteServer"];
+	        this.remoteKey = source["remoteKey"];
 	    }
 	}
 
