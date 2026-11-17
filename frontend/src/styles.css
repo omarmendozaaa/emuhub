@@ -781,6 +781,27 @@ kbd {
 
 .toggle input { display: none; }
 
+.text-setting {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+}
+
+.text-setting input { margin-top: 6px; }
+
+.text-setting .field { display: flex; flex-direction: column; margin-top: 8px; }
+
+.text-setting .field .input-row { margin-top: 0; align-items: flex-end; }
+
+.text-setting .field .input-row input { flex: 1; }
+
+.text-setting .save-row { align-items: center; margin-top: 12px; }
+
+.ok-text { color: #5fd38d; }
+
 .switch {
     position: relative;
     flex-shrink: 0;
@@ -920,8 +941,8 @@ kbd {
     border: 1px solid var(--line);
     background: rgba(0, 0, 0, 0.35);
     color: inherit;
+    /* No upper-casing: links are case-sensitive, and codes accept either. */
     font: 15px ui-monospace, monospace;
-    text-transform: uppercase;
 }
 
 .room-form input:focus { outline: 1.5px solid #5b82ff; }
@@ -929,6 +950,11 @@ kbd {
 .room-badge { width: min(460px, 86vw); text-align: center; margin-bottom: 6px; }
 
 .room-badge .room-code { margin: 8px 0; text-align: left; }
+
+/* A room link is one long word: it wraps anywhere and reads smaller. */
+.room-code.link code { font-size: 12.5px; font-weight: 500; overflow-wrap: anywhere; }
+
+.room-code-note { margin: -6px 0 12px; }
 
 /* Rooms: who plays, in which seat. */
 
@@ -1006,6 +1032,18 @@ kbd {
 .seat.seat-free .seat-who b { color: var(--muted); }
 
 .seat-who span { font-size: 12.5px; color: var(--muted); }
+
+.seat-ready { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; font-weight: 600; flex: none; }
+
+.seat-ready .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.seat-ready.ok { color: var(--ok); }
+
+.seat-ready.ok .dot { background: var(--ok); }
+
+.seat-ready.wait { color: #ffc46b; }
+
+.seat-ready.wait .dot { border: 2px solid #ffc46b; }
 
 .seat-tag { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #fff; color: var(--panel-solid); }
 

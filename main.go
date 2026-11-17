@@ -11,6 +11,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 )
 
 //go:embed all:frontend/dist
@@ -33,6 +34,7 @@ func main() {
 		log.Fatalf("no se pudo abrir la biblioteca: %v", err)
 	}
 	app := NewApp(store)
+	app.pendingLink = roomLink(os.Args[1:])
 
 	err = wails.Run(&options.App{
 		Title:     "EmuHub",
@@ -52,6 +54,12 @@ func main() {
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		Bind:             []interface{}{app},
+		// A room link opened while EmuHub runs goes to the open window.
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId:               "io.github.omarmendozaaa.emuhub",
+			OnSecondInstanceLaunch: app.secondInstance,
+		},
+		Mac: &mac.Options{OnUrlOpen: app.openLink},
 		Linux: &linux.Options{
 			ProgramName:      "emuhub",
 			WebviewGpuPolicy: linux.WebviewGpuPolicyAlways,

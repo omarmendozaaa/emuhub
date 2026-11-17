@@ -21,6 +21,9 @@ func TestInviteRoundTrip(t *testing.T) {
 	for _, in := range []Invite{
 		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0007"},
 		{Addrs: addrs("192.168.1.20", "100.64.0.3", "203.0.113.9"), Port: 48089, PIN: "9999"},
+		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://emuhub-signal.omar.workers.dev"},
+		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://salas.workers.dev"},
+		{Addrs: addrs("10.0.0.2"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "http://127.0.0.1:8787/emuhub"},
 	} {
 		code, err := in.Encode()
 		if err != nil {
@@ -64,6 +67,9 @@ func TestInviteRejectsDamage(t *testing.T) {
 		{Port: 1, PIN: "1234"},
 		{Addrs: addrs("10.0.0.2"), Port: 1, PIN: "12a4"},
 		{Addrs: addrs("::1"), Port: 1, PIN: "1234"},
+		{Addrs: addrs("10.0.0.2"), Port: 1, PIN: "1234", Secret: []byte{1, 2, 3}, Server: "https://a.workers.dev"},
+		{Addrs: addrs("10.0.0.2"), Port: 1, PIN: "1234", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}},
+		{Addrs: addrs("10.0.0.2"), Port: 1, PIN: "1234", Server: "https://a.workers.dev"},
 	} {
 		if _, err := in.Encode(); err == nil {
 			t.Errorf("%+v was encoded", in)
@@ -73,16 +79,10 @@ func TestInviteRejectsDamage(t *testing.T) {
 
 func TestInviteAddrs(t *testing.T) {
 	local := addrs("192.168.1.2", "10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5", "10.0.0.6")
-	got := inviteAddrs(local, netip.MustParseAddr("203.0.113.9"), true)
-	if len(got) != maxAddrs || got[0] != local[0] || got[len(got)-1] != netip.MustParseAddr("203.0.113.9") {
+	if got := inviteAddrs(local); !reflect.DeepEqual(got, local[:maxAddrs]) {
 		t.Errorf("got %v", got)
 	}
-	// A machine with a public address on its own interface lists it once.
-	got = inviteAddrs(addrs("203.0.113.9"), netip.MustParseAddr("203.0.113.9"), true)
-	if len(got) != 1 {
-		t.Errorf("got %v", got)
-	}
-	if got = inviteAddrs(local[:2], netip.Addr{}, false); !reflect.DeepEqual(got, local[:2]) {
+	if got := inviteAddrs(local[:2]); !reflect.DeepEqual(got, local[:2]) {
 		t.Errorf("got %v", got)
 	}
 }
@@ -190,5 +190,115 @@ func TestPadIndexes(t *testing.T) {
 	seats = []Seat{{Kind: "guest", Guest: 1}, {}, {}}
 	if got := PadIndexes(seats, 1); !reflect.DeepEqual(got, []int{1, 2, 3}) {
 		t.Errorf("solo hosteo: %v", got)
+	}
+}
+
+func TestMarkReady(t *testing.T) {
+	seats := []Seat{{Kind: "host"}, {Kind: "guest", Guest: 1}, {Kind: "guest", Guest: 2}, {}}
+	got := MarkReady(seats, 0, 1)
+	want := []Seat{
+		{Kind: "host", Ready: true, Input: "teclado"},
+		{Kind: "guest", Guest: 1, Ready: true, Input: "mando"},
+		{Kind: "guest", Guest: 2},
+		{},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v", got)
+	}
+	if AllReady(got) {
+		t.Fatal("guest 2 has no gamepad yet")
+	}
+	got = MarkReady(seats, 1, 2)
+	if got[0].Input != "mando" || !AllReady(got) {
+		t.Fatalf("everyone seated should be ready: %+v", got)
+	}
+	// A guest who leaves takes their gamepad with them.
+	if AllReady(MarkReady(got, 1, 1)) {
+		t.Fatal("a guest without gamepad is not ready")
+	}
+	if AllReady([]Seat{{}, {}}) {
+		t.Fatal("nobody to play")
+	}
+}
+
+func TestInviteLink(t *testing.T) {
+	in := Invite{
+		Addrs: addrs("192.168.18.12", "100.101.102.103"), Port: 47989, PIN: "0420",
+		Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://emuhub-signal.omar.workers.dev",
+	}
+	link, err := in.Share()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(link, "https://emuhub-signal.omar.workers.dev/j/") || strings.Contains(link, "key=") {
+		t.Fatalf("link %q", link)
+	}
+	token := strings.TrimPrefix(link, "https://emuhub-signal.omar.workers.dev/j/")
+	code, _ := in.Encode()
+	for _, s := range []string{
+		link,
+		"  " + link + "\n",
+		link + "/",
+		link + "?utm_source=chat#x",
+		"emuhub://join/" + token,
+		"EMUHUB://join/" + token + "/",
+		"emuhub://join/" + code,
+		code,
+	} {
+		got, err := DecodeInvite(s)
+		if err != nil || !reflect.DeepEqual(got, in) {
+			t.Errorf("%q: got %+v, %v", s, got, err)
+		}
+	}
+	// A server under a path keeps it.
+	in.Server = "http://127.0.0.1:8787/emuhub"
+	if link, _ = in.Link(); link[:len("http://127.0.0.1:8787/emuhub/j/")] != "http://127.0.0.1:8787/emuhub/j/" {
+		t.Errorf("link %q", link)
+	}
+	if got, err := DecodeInvite(link); err != nil || got.Server != in.Server {
+		t.Errorf("%q: %+v %v", link, got, err)
+	}
+	// Damaged links are refused.
+	for _, bad := range []string{link[:len(link)-3], "https://example.com/", "emuhub://join/", "https://x.dev/j/!!!!"} {
+		if _, err := DecodeInvite(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	// Rooms without a server share a code.
+	lan := Invite{Addrs: addrs("192.168.18.12"), Port: 47989, PIN: "0420"}
+	if s, _ := lan.Share(); !strings.HasPrefix(s, "EH-") {
+		t.Errorf("share %q", s)
+	}
+}
+
+func TestInviteLeavesKeyOut(t *testing.T) {
+	if got := publicServer(" https://emuhub-signal.omar.workers.dev/?key=s3creto#x"); got != "https://emuhub-signal.omar.workers.dev/" {
+		t.Errorf("public %q", got)
+	}
+	in := Invite{Addrs: addrs("10.0.0.2"), Port: 47989, PIN: "0420", Secret: []byte("12345678"), Server: "https://a.workers.dev/?key=s3creto"}
+	link, err := in.Link()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := DecodeInvite(link)
+	if err != nil || strings.Contains(link, "s3creto") || got.Server != "https://a.workers.dev" {
+		t.Errorf("%q: %+v %v", link, got, err)
+	}
+}
+
+func TestWithKey(t *testing.T) {
+	for _, c := range []struct{ server, key, want string }{
+		{"https://emuhub-signal.a.workers.dev", "s3cr3t", "https://emuhub-signal.a.workers.dev?key=s3cr3t"},
+		{"https://emuhub-signal.a.workers.dev/", " k ", "https://emuhub-signal.a.workers.dev/?key=k"},
+		{"https://emuhub-signal.a.workers.dev", "", "https://emuhub-signal.a.workers.dev"},
+		{"", "k", ""},
+	} {
+		if got := WithKey(c.server, c.key); got != c.want {
+			t.Errorf("WithKey(%q, %q) = %q, want %q", c.server, c.key, got, c.want)
+		}
+	}
+	u, _ := roomURL(WithKey("https://x.workers.dev", "k&1"), []byte("secret"), "host")
+	if !strings.Contains(u, "key=k%261") {
+		t.Errorf("host room URL lost the key: %s", u)
 	}
 }

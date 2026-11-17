@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,6 +27,7 @@ type GuestOptions struct {
 type Guest struct {
 	cmd    *exec.Cmd
 	output *tailBuffer
+	tunnel *tunnelGuest // nil when Moonlight reaches the host directly
 }
 
 // Join reaches the host named by the room code, pairs with its PIN and starts
@@ -43,9 +45,28 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 
 	status("Buscando la sala…")
 	addr, hostID, err := reachable(ctx, in)
+	var tunnel *tunnelGuest
 	if err != nil {
-		return nil, err
+		if len(in.Secret) == 0 {
+			return nil, fmt.Errorf("%w. Para jugar desde otra red, el anfitrión necesita un servidor de salas en Ajustes → Jugar con amigos", err)
+		}
+		// No direct way in: meet the host on its signaling server.
+		status("Abriendo un túnel hasta el anfitrión…")
+		if tunnel, err = dialTunnel(ctx, in.Server, in); err != nil {
+			return nil, err
+		}
+		addr, hostID, err = reachable(ctx, Invite{Addrs: []netip.Addr{tunnelListen}, Port: in.Port})
+		if err != nil {
+			tunnel.Close()
+			return nil, err
+		}
 	}
+	ok := false
+	defer func() {
+		if !ok && tunnel != nil {
+			tunnel.Close()
+		}
+	}()
 	host := fmt.Sprintf("%s:%d", addr, in.Port)
 	if err := forgetOtherHosts(opts.settingsFile(), hostID); err != nil {
 		return nil, fmt.Errorf("no se pudo preparar Moonlight: %w", err)
@@ -62,7 +83,7 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 		}
 		// Moonlight exits with 0 either way, so ask the host what it thinks.
 		if !paired(ctx, opts, host) {
-			return nil, fmt.Errorf("ese código es de una sala que ya se cerró, o la sala está completa. Pide al anfitrión el código que aparece ahora en su pantalla\n%s", lastLines(out, 2))
+			return nil, fmt.Errorf("ese código es de una sala que ya se cerró, o la sala está completa. Pide al anfitrión la invitación que aparece ahora en su sala\n%s", lastLines(out, 2))
 		}
 	}
 
@@ -74,19 +95,27 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 	} else {
 		args = append(args, "--720", "--bitrate", "10000")
 	}
-	g := &Guest{output: &tailBuffer{max: 4096}}
+	g := &Guest{output: &tailBuffer{max: 4096}, tunnel: tunnel}
 	g.cmd = opts.command(context.Background(), args...)
 	g.cmd.Stdout, g.cmd.Stderr = g.output, g.output
 	if err := g.cmd.Start(); err != nil {
 		return nil, fmt.Errorf("no se pudo iniciar Moonlight: %w", err)
 	}
+	ok = true
 	return g, nil
 }
+
+// Tunneled reports whether the session goes through a tunnel.
+func (g *Guest) Tunneled() bool { return g.tunnel != nil }
 
 // Wait blocks until Moonlight closes and returns its last output lines when
 // it ended with an error.
 func (g *Guest) Wait() error {
-	if err := g.cmd.Wait(); err != nil {
+	err := g.cmd.Wait()
+	if g.tunnel != nil {
+		g.tunnel.Close()
+	}
+	if err != nil {
 		return fmt.Errorf("%w\n%s", err, lastLines(g.output.Bytes(), 3))
 	}
 	return nil
@@ -96,6 +125,9 @@ func (g *Guest) Wait() error {
 func (g *Guest) Stop() {
 	if g.cmd.Process != nil {
 		terminate(g.cmd)
+	}
+	if g.tunnel != nil {
+		g.tunnel.Close()
 	}
 }
 

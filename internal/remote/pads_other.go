@@ -5,3 +5,6 @@ package remote
 // Gamepads counts the gamepads connected to this machine right now. Hosting
 // is not available on this system, so nothing needs the count.
 func Gamepads() int { return 0 }
+
+// PadCounts tells apart the host's gamepads from the guests'.
+func PadCounts(hostAtOpen int) (host, guests int) { return 0, 0 }

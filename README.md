@@ -106,10 +106,11 @@ anfitrión necesita el juego**: su equipo ejecuta el emulador y emite vídeo y a
 y envía su mando. No se copia ningún archivo del juego al invitado.
 
 1. **Anfitrión**: sobre un juego, abre sus opciones (`M` / Share) → **Invitar amigos…**. Elige si
-   juegas tú o solo hosteas y cuántos jugadores hay; EmuHub abre una sala y muestra un código como
-   `EH-06XQ-A4G4-0B0A-G4GC`. Envíalo por cualquier chat.
-2. **Invitado**: pulsa **Unirse a una sala** (`J`), pega el código y entra. No hay nada que emparejar
-   ni configurar a mano.
+   juegas tú o solo hosteas y cuántos jugadores hay; EmuHub abre una sala y muestra la invitación:
+   un enlace si tienes servidor de salas, o un código como `EH-06XQ-A4G4-0B0A-G4GC` para jugar en
+   tu red o por VPN. Envíalo por cualquier chat.
+2. **Invitado**: pulsa el enlace y EmuHub se abre directamente en la sala; o pulsa **Unirse a una
+   sala** (`J`) y pega el código o el enlace. No hay nada que emparejar ni configurar a mano.
 3. Cada invitado ocupa un asiento (J1, J2…) según llega. El anfitrión pulsa **Empezar partida**
    cuando quiera. La sala se cierra sola al salir del juego.
 
@@ -140,14 +141,27 @@ Lo que conviene saber:
   para el emulador, la emite y la reenvía a tus altavoces, así que el resto del escritorio (Discord u
   otra llamada) no llega al invitado y no se oye doble. Necesita `pactl` (PulseAudio o PipeWire). En
   Windows se emite todo el audio del equipo.
-- **Por internet** la sala usa UPnP para abrir los puertos en el router del anfitrión y consulta su IP
-  pública (a `api.ipify.org`) para incluirla en el código. Si el router no tiene UPnP, abre a mano los
-  puertos TCP 47984, 47989 y 48010 y UDP 47998 a 48000. Detrás de CGNAT no funciona: usad una VPN
-  como Tailscale o ZeroTier, cuyas direcciones EmuHub incluye en el código automáticamente. En
-  *Ajustes → Jugar con amigos* puedes limitar las salas a tu red local.
-- **Seguridad**: cada sala tiene un PIN nuevo dentro del código y los emparejados se olvidan al
-  cerrarla, así que un código antiguo no sirve. Tras cinco intentos con un código incorrecto la sala
-  deja de aceptar invitados.
+- **En la misma red o por VPN** (Tailscale, ZeroTier) no hay que configurar nada: el código de sala
+  lleva las direcciones locales y de la VPN del anfitrión.
+- **Desde otra red**, EmuHub conecta los dos equipos directamente con un **túnel P2P**, sin abrir
+  puertos en el router ni tocar el firewall, también detrás de CGNAT. Para encontrarse usan un
+  *servidor de salas*: un Cloudflare Worker gratuito que monta uno del grupo con un botón
+  ([`signal/`](signal/README.md)). El anfitrión pone su dirección en *Ajustes → Jugar con amigos →
+  Servidor de salas* y viaja dentro de la invitación, así que los invitados no configuran nada. La
+  clave del servidor no viaja: solo el anfitrión la necesita para crear la sala. El vídeo no pasa
+  por el servidor.
+- **Enlaces de sala**: con servidor, la invitación es un enlace a tu Worker
+  (`https://emuhub-signal.<cuenta>.workers.dev/j/…`) que se puede pulsar en cualquier chat. Abre una
+  página que lanza EmuHub con `emuhub://` y, si no está instalado, explica cómo descargarlo. EmuHub
+  registra `emuhub://` al arrancar (en Windows y Linux sin pedir permisos) y si ya está abierto, el
+  enlace llega a la ventana abierta. La invitación entera va en el enlace: el servidor no guarda
+  nada.
+  Solo falla si las dos redes usan NAT simétrico (pasa a veces con datos móviles); entonces
+  probad desde otra red o con una VPN.
+- **Seguridad**: cada sala tiene un PIN nuevo dentro de la invitación y los emparejados se olvidan
+  al cerrarla, así que una invitación antigua no sirve. El túnel va cifrado y autenticado con un
+  secreto que solo está en la invitación: el servidor de salas ve un hash de él y no puede suplantar
+  a nadie. Tras cinco intentos con una invitación incorrecta la sala deja de aceptar invitados.
 - **Anfitrión en Windows**: Sunshine necesita el driver [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases)
   para crear el mando del invitado (se instala una vez) y Windows pedirá permiso de firewall la primera vez.
 - **Anfitrión en Linux**: tu usuario necesita acceso a `/dev/uinput` (`sudo usermod -aG input $USER`).

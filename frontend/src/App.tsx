@@ -3,14 +3,14 @@ import type {library, main} from '../wailsjs/go/models'
 import {
     ChooseCover, FetchCovers, GetBundleInfo, GetConsoles, GetGames, GetRemoteState, GetRemoteSupport, GetRoomLimits,
     GetSettings, HostGame, JoinGame, LaunchGame, LeaveGame, MoveSeat, Quit, RemoveGame, RunningGame, ScanLibrary,
-    StopGame, StopHosting, ToggleFavorite,
+    StopGame, StopHosting, TakeRoomLink, ToggleFavorite,
 } from '../wailsjs/go/main/App'
 import {ClipboardSetText, EventsOn} from '../wailsjs/runtime/runtime'
 import {Carousel} from './components/Carousel'
 import {GameList} from './components/GameList'
 import {GameMenu, gameMenuItems} from './components/GameMenu'
 import {Glyph, Hint} from './components/Glyph'
-import {GuestSession, HostBadge, HostRoom, HostSetup, JoinRoom, playerRange, RoomSetup} from './components/Remote'
+import {GuestSession, HostBadge, HostRoom, HostSetup, JoinRoom, playerRange, RoomSetup, roomReady} from './components/Remote'
 import {CoverProgress, Settings} from './components/Settings'
 import {Action, blip, useInput} from './input'
 import {backdropUrl, coverUrl, errorText, formatAgo, formatPlaytime, Game} from './util'
@@ -44,6 +44,9 @@ export default function App() {
     const [bundle, setBundle] = useState<main.BundleState | null>(null)
     const [menuIndex, setMenuIndex] = useState(0)
     const [running, setRunning] = useState<string>('')
+    // A room link EmuHub was opened with, shown in the join panel.
+    const [roomLink, setRoomLink] = useState('')
+    const busyRef = useRef(false)
     const [scanning, setScanning] = useState(false)
     const [covers, setCovers] = useState<CoverProgress | null>(null)
     const [toasts, setToasts] = useState<Toast[]>([])
@@ -85,7 +88,18 @@ export default function App() {
         GetBundleInfo().then(setBundle)
         GetRemoteState().then(setRemote)
         GetRemoteSupport().then(setSupport)
+        const takeLink = () => TakeRoomLink().then(link => {
+            if (!link) return
+            if (busyRef.current) {
+                toast('Sal del juego o de la sala para abrir el enlace de sala', 'error')
+                return
+            }
+            setRoomLink(link)
+            setPanel('join')
+        })
+        takeLink()
         const offs = [
+            EventsOn('room:link', takeLink),
             EventsOn('bundle:state', (s: main.BundleState) => {
                 setBundle(s)
                 if (s.ready || s.error) {
@@ -189,6 +203,7 @@ export default function App() {
 
     const hosting = remote?.role === 'host'
     const guest = remote?.role === 'guest'
+    busyRef.current = !!running || !!remote?.role
 
     // Asks who plays before opening a room for the game.
     const invite = async (g: Game | undefined = current) => {
@@ -245,7 +260,7 @@ export default function App() {
         setPanel('join')
     }
 
-    const copied = () => toast('Código copiado')
+    const copied = () => toast(remote?.code?.includes('://') ? 'Enlace copiado' : 'Código copiado')
 
     const toggleFav = async (g: Game | undefined = current) => {
         if (!g) return
@@ -296,7 +311,7 @@ export default function App() {
             if (a === 'down' && seatCount) { blip('move'); setSeat(s => (s + 1) % seatCount) }
             if (a === 'square' && canMoveSeat) { blip('ok'); setMoving(true) }
             if (a === 'triangle') copyCode()
-            if (a === 'confirm') play(games.find(g => g.id === remote.gameId))
+            if (a === 'confirm' && roomReady(remote)) play(games.find(g => g.id === remote.gameId))
             if (a === 'back') { blip('back'); StopHosting() }
             return
         }
@@ -520,7 +535,10 @@ export default function App() {
                 />
             )}
 
-            {panel === 'join' && !guest && <JoinRoom support={support} onJoin={join} onClose={() => setPanel('none')}/>}
+            {panel === 'join' && !guest && (
+                <JoinRoom key={roomLink} support={support} initial={roomLink} onJoin={join}
+                          onClose={() => { setPanel('none'); setRoomLink('') }}/>
+            )}
 
             {guest && <GuestSession state={remote} onLeave={() => LeaveGame()}/>}
 

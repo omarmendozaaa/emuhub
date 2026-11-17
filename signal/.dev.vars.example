@@ -1,0 +1,4 @@
+# Clave para crear salas: solo la usa quien hostea, en Ajustes de EmuHub
+# (…/?key=<clave>). Los invitados no la necesitan.
+# Genera una con: openssl rand -hex 16
+ACCESS_KEY=

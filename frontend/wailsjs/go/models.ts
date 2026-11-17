@@ -53,8 +53,9 @@ export namespace library {
 	export class Settings {
 	    minimizeOnLaunch: boolean;
 	    autoCovers: boolean;
-	    remoteLanOnly: boolean;
 	    remoteHd: boolean;
+	    remoteServer: string;
+	    remoteKey: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -64,8 +65,9 @@ export namespace library {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.minimizeOnLaunch = source["minimizeOnLaunch"];
 	        this.autoCovers = source["autoCovers"];
-	        this.remoteLanOnly = source["remoteLanOnly"];
 	        this.remoteHd = source["remoteHd"];
+	        this.remoteServer = source["remoteServer"];
+	        this.remoteKey = source["remoteKey"];
 	    }
 	}
 
@@ -311,6 +313,8 @@ export namespace remote {
 	export class Seat {
 	    kind: string;
 	    guest: number;
+	    ready: boolean;
+	    input: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Seat(source);
@@ -320,6 +324,8 @@ export namespace remote {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.kind = source["kind"];
 	        this.guest = source["guest"];
+	        this.ready = source["ready"];
+	        this.input = source["input"];
 	    }
 	}
 

@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -87,56 +88,10 @@ func isVirtual(name string) bool {
 	return false
 }
 
-// publicIPServices answer with the caller's public IPv4 as plain text.
-var publicIPServices = []string{"https://api.ipify.org", "https://ipv4.icanhazip.com"}
-
-// publicAddr asks an external service for this network's public IPv4.
-func publicAddr(ctx context.Context) (netip.Addr, bool) {
-	client := &http.Client{Timeout: 4 * time.Second}
-	for _, url := range publicIPServices {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		if err != nil {
-			continue
-		}
-		req.Header.Set("User-Agent", "emuhub")
-		resp, err := client.Do(req)
-		if err != nil {
-			continue
-		}
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 64))
-		resp.Body.Close()
-		if ip, err := netip.ParseAddr(strings.TrimSpace(string(b))); err == nil && ip.Is4() && resp.StatusCode == http.StatusOK {
-			return ip, true
-		}
-	}
-	return netip.Addr{}, false
-}
-
-// inviteAddrs orders addresses for the room code: local ones first, so
-// players on the same network or VPN never go out through the router.
-func inviteAddrs(local []netip.Addr, public netip.Addr, hasPublic bool) []netip.Addr {
-	var out []netip.Addr
-	seen := map[netip.Addr]bool{}
-	add := func(a netip.Addr) {
-		if !seen[a] && len(out) < maxAddrs {
-			seen[a] = true
-			out = append(out, a)
-		}
-	}
-	// Keep room for the public address.
-	limit := maxAddrs
-	if hasPublic {
-		limit--
-	}
-	for _, a := range local {
-		if len(out) < limit {
-			add(a)
-		}
-	}
-	if hasPublic {
-		add(public)
-	}
-	return out
+// inviteAddrs picks the addresses for the room code: this machine's local
+// and VPN addresses, as many as fit.
+func inviteAddrs(local []netip.Addr) []netip.Addr {
+	return local[:min(len(local), maxAddrs)]
 }
 
 // reachable returns the first address, in invite order, where the host's
@@ -174,7 +129,7 @@ func reachable(ctx context.Context, in Invite) (netip.Addr, string, error) {
 			return in.Addrs[i], a.id, nil
 		}
 	}
-	return netip.Addr{}, "", fmt.Errorf("no se pudo conectar con el anfitrión. Comprueba que su sala sigue abierta y, si jugáis por internet, que su router tiene UPnP o los puertos abiertos")
+	return netip.Addr{}, "", errors.New("no se pudo conectar con el anfitrión. Comprueba que su sala sigue abierta y que estáis en la misma red o VPN")
 }
 
 // xmlField returns the text of the first <name> element in body, or "".

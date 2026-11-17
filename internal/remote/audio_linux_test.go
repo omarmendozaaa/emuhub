@@ -18,9 +18,20 @@ Sink Input #2190
 		application.name = "RMG"
 		application.process.id = "163584"
 `
-	want := []sinkInput{{index: "1681"}, {index: "2190", pid: 163584}}
+	want := []sinkInput{{index: "1681", sink: "60"}, {index: "2190", sink: "60", pid: 163584}}
 	if got := parseSinkInputs(out); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestSinkIndex(t *testing.T) {
+	out := "60\talsa_output.usb-analog-stereo\tPipeWire\ts16le 2ch 48000Hz\tRUNNING\n" +
+		"434\temuhub_juego\tPipeWire\tfloat32le 2ch 48000Hz\tIDLE\n"
+	if got := sinkIndex(out, "emuhub_juego"); got != "434" {
+		t.Fatalf("got %q", got)
+	}
+	if got := sinkIndex(out, "otro"); got != "" {
+		t.Fatalf("got %q", got)
 	}
 }
 

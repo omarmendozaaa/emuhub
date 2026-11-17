@@ -7,7 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	goruntime "runtime"
+	"strings"
 	"time"
 
 	"emuhub/internal/bundle"
@@ -193,39 +195,78 @@ func (a *App) padsAtStart(g library.Game) bool {
 	return emu != nil && emu.PadsAtStart
 }
 
-// guestPadWait is how long a launch waits for the guests' gamepads.
-const guestPadWait = 30 * time.Second
+// seatsTick is how often an open room checks who is ready to play.
+const seatsTick = 500 * time.Millisecond
 
-// waitGuestPads holds back an emulator that only sees the gamepads present
-// at start until every guest's pad exists. Sunshine creates a guest's pad
-// when they first press a button, not when they join, so a game started
-// right away would leave them out until it restarts.
-func (a *App) waitGuestPads(g library.Game) {
-	if !a.padsAtStart(g) {
-		return
-	}
-	missing := func() (int, bool) {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		s := a.remote.state
-		if s.Role != "host" || s.GameID != g.ID || a.remote.host == nil {
-			return 0, false
-		}
-		return a.remote.hostPads + s.Guests - remote.Gamepads(), true
-	}
-	n, ok := missing()
-	if !ok || n <= 0 {
-		return
-	}
-	a.remoteNotice("Esperando los mandos de los invitados: pide a cada uno que pulse un botón de su mando", "info")
-	deadline := time.Now().Add(guestPadWait)
-	for time.Now().Before(deadline) {
-		time.Sleep(300 * time.Millisecond)
-		if n, ok = missing(); !ok || n <= 0 {
+// watchSeats keeps the room's seats up to date with who is ready to play
+// until the room closes or Sunshine stops.
+func (a *App) watchSeats(ctx context.Context, host *remote.Host) {
+	tick := time.NewTicker(seatsTick)
+	defer tick.Stop()
+	for {
+		a.refreshSeats()
+		select {
+		case <-ctx.Done():
 			return
+		case <-host.Exited():
+			return
+		case <-tick.C:
 		}
 	}
-	a.remoteNotice(fmt.Sprintf("Faltan %d mandos de invitados: el emulador no los verá hasta que reinicies el juego", n), "error")
+}
+
+// refreshSeats marks which players of the open room are ready: their input
+// reaches this machine. Until the game starts, the host's gamepads are
+// counted again too, since the emulator numbers the guests' after them.
+func (a *App) refreshSeats() {
+	a.mu.Lock()
+	hostAtOpen, open := a.remote.hostPads, a.remote.state.Role == "host" && a.remote.host != nil
+	a.mu.Unlock()
+	if !open {
+		return
+	}
+	host, guests := remote.PadCounts(hostAtOpen)
+	a.mu.Lock()
+	if a.remote.state.Role != "host" || a.remote.host == nil {
+		a.mu.Unlock()
+		return
+	}
+	if goruntime.GOOS == "linux" && a.running == nil {
+		a.remote.hostPads = host
+	}
+	seats := remote.MarkReady(a.remote.state.Seats, host, guests)
+	changed := !reflect.DeepEqual(seats, a.remote.state.Seats)
+	if changed {
+		a.remote.state.Seats = seats
+	}
+	state := a.remote.state
+	a.mu.Unlock()
+	if changed && a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "remote:state", state)
+	}
+}
+
+// roomReady refuses to start a room's game until everyone seated is ready:
+// an emulator that only sees the gamepads present at start would leave out
+// a guest whose gamepad Sunshine had not created yet.
+func (a *App) roomReady(g library.Game) error {
+	a.refreshSeats()
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	s := a.remote.state
+	if s.Role != "host" || s.GameID != g.ID || remote.AllReady(s.Seats) {
+		return nil
+	}
+	var missing []string
+	for _, st := range s.Seats {
+		if st.Kind == "guest" && !st.Ready {
+			missing = append(missing, fmt.Sprintf("Invitado %d", st.Guest))
+		}
+	}
+	if len(missing) == 0 {
+		return errors.New("aún no hay nadie sentado para jugar")
+	}
+	return fmt.Errorf("aún no están listos todos los jugadores: falta el mando de %s (que pulse un botón de su mando)", strings.Join(missing, ", "))
 }
 
 // roomGameEnv is what the game's environment needs while this machine hosts
@@ -326,10 +367,10 @@ func (a *App) HostGame(id string, players int, hostPlays bool) (RemoteState, err
 	runtime.EventsEmit(a.ctx, "remote:state", state)
 
 	host, err := remote.StartHost(ctx, remote.HostOptions{
-		Tool:     tool,
-		Dir:      dir,
-		Internet: !a.store.Settings().RemoteLANOnly,
-		Guests:   remote.GuestSeats(players, hostPlays),
+		Tool:   tool,
+		Dir:    dir,
+		Server: remote.WithKey(a.store.Settings().RemoteServer, a.store.Settings().RemoteKey),
+		Guests: remote.GuestSeats(players, hostPlays),
 		OnGuest: func(n int) {
 			seat := 0
 			a.setRemote(func(s *remoteSession) {
@@ -383,6 +424,7 @@ func (a *App) HostGame(id string, players int, hostPlays bool) (RemoteState, err
 	state = a.remote.state
 	a.mu.Unlock()
 	runtime.EventsEmit(a.ctx, "remote:state", state)
+	go a.watchSeats(ctx, host)
 
 	go func() {
 		<-host.Exited()

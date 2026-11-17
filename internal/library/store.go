@@ -3,6 +3,7 @@ package library
 import (
 	"encoding/json"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,11 +49,15 @@ type ConsoleConfig struct {
 type Settings struct {
 	MinimizeOnLaunch bool `json:"minimizeOnLaunch"`
 	AutoCovers       bool `json:"autoCovers"`
-	// RemoteLANOnly keeps rooms off the internet: no UPnP and no public
-	// address in the room code.
-	RemoteLANOnly bool `json:"remoteLanOnly"`
 	// RemoteHD receives rooms at 1080p instead of 720p.
 	RemoteHD bool `json:"remoteHd"`
+	// RemoteServer is the signaling server this user's rooms offer for P2P
+	// tunnels with players on other networks. It travels in the room code.
+	// Empty keeps rooms to the local network and VPNs.
+	RemoteServer string `json:"remoteServer"`
+	// RemoteKey is the server's access key, if it has one. Only the host
+	// uses it, to open rooms; it never leaves this machine.
+	RemoteKey string `json:"remoteKey"`
 }
 
 type fileData struct {
@@ -121,6 +126,7 @@ func (s *Store) load() error {
 		return err
 	}
 	s.settings = d.Settings
+	s.settings.RemoteServer, s.settings.RemoteKey = SplitServerKey(s.settings.RemoteServer, s.settings.RemoteKey)
 	if d.Consoles != nil {
 		s.consoles = d.Consoles
 	}
@@ -260,4 +266,21 @@ func (s *Store) SetConsoleConfig(id string, cfg ConsoleConfig) error {
 	}
 	s.consoles[id] = &cfg
 	return s.saveLocked()
+}
+
+// SplitServerKey takes the key out of a server address that still carries
+// it as ?key=…, as older versions saved it, unless a key is already set.
+func SplitServerKey(server, key string) (string, string) {
+	server, key = strings.TrimSpace(server), strings.TrimSpace(key)
+	u, err := url.Parse(server)
+	if err != nil || u.RawQuery == "" {
+		return server, key
+	}
+	q := u.Query()
+	if k := q.Get("key"); k != "" && key == "" {
+		key = k
+	}
+	q.Del("key")
+	u.RawQuery = q.Encode()
+	return u.String(), key
 }
