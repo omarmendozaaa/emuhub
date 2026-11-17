@@ -76,7 +76,7 @@ func fakeSignal(t *testing.T, key string) string {
 	)
 	up := websocket.Upgrader{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if key != "" && r.URL.Query().Get("key") != key {
+		if key != "" && r.URL.Query().Get("role") == "host" && r.URL.Query().Get("key") != key {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -209,10 +209,12 @@ func TestTunnel(t *testing.T) {
 		stunServers = oldSTUN
 		extraICEOptions = nil
 	})
+	// The host's address carries the key; guests get it without.
 	server := os.Getenv("EMUHUB_SIGNAL_URL")
 	if server == "" {
-		server = fakeSignal(t, "")
+		server = fakeSignal(t, "k") + "/?key=k"
 	}
+	guestServer := publicServer(server)
 
 	const base = 52489
 	echoSunshine(t, base)
@@ -223,7 +225,7 @@ func TestTunnel(t *testing.T) {
 	defer cancel()
 
 	// Nobody is hosting this room yet.
-	if _, err := dialTunnel(ctx, server, Invite{Port: base, Secret: secret}); !errors.Is(err, errNoTunnelHost) {
+	if _, err := dialTunnel(ctx, guestServer, Invite{Port: base, Secret: secret}); !errors.Is(err, errNoTunnelHost) {
 		t.Fatalf("without host: %v", err)
 	}
 
@@ -235,7 +237,7 @@ func TestTunnel(t *testing.T) {
 
 	var g *tunnelGuest
 	for range 20 {
-		g, err = dialTunnel(ctx, server, Invite{Port: base, Secret: secret})
+		g, err = dialTunnel(ctx, guestServer, Invite{Port: base, Secret: secret})
 		if !errors.Is(err, errNoTunnelHost) {
 			break
 		}
@@ -298,7 +300,7 @@ func TestTunnel(t *testing.T) {
 	// A guest with the wrong secret lands in another room.
 	other := append([]byte(nil), secret...)
 	other[0] ^= 1
-	if _, err := dialTunnel(ctx, server, Invite{Port: base + 100, Secret: other}); !errors.Is(err, errNoTunnelHost) {
+	if _, err := dialTunnel(ctx, guestServer, Invite{Port: base + 100, Secret: other}); !errors.Is(err, errNoTunnelHost) {
 		t.Errorf("wrong secret: %v", err)
 	}
 
@@ -325,7 +327,13 @@ func TestServerKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("right key: %v", err)
 	}
-	h.Close()
+	defer h.Close()
+	// Guests need no key, only the room's name.
+	sc, err := dialSignal(ctx, server, secret, "guest")
+	if err != nil {
+		t.Fatalf("guest without key: %v", err)
+	}
+	sc.Close()
 }
 
 func TestRoomURL(t *testing.T) {
@@ -333,7 +341,18 @@ func TestRoomURL(t *testing.T) {
 	for in, want := range map[string]string{
 		"https://a.workers.dev":                "wss://a.workers.dev/v1/rooms/" + roomKey(secret) + "?role=host",
 		" https://a.workers.dev/?key=x%2By#f ": "wss://a.workers.dev/v1/rooms/" + roomKey(secret) + "?key=x%2By&role=host",
-		"http://127.0.0.1:8787/":               "ws://127.0.0.1:8787/v1/rooms/" + roomKey(secret) + "?role=host",
+	} {
+		got, err := roomURL(in, secret, "host")
+		if err != nil || got != want {
+			t.Errorf("%q: got %q, %v", in, got, err)
+		}
+	}
+	// Guests never send the key.
+	if got, _ := roomURL("https://a.workers.dev/?key=x", secret, "guest"); strings.Contains(got, "key") {
+		t.Errorf("guest url %q", got)
+	}
+	for in, want := range map[string]string{
+		"http://127.0.0.1:8787/": "ws://127.0.0.1:8787/v1/rooms/" + roomKey(secret) + "?role=host",
 	} {
 		got, err := roomURL(in, secret, "host")
 		if err != nil || got != want {

@@ -147,8 +147,9 @@ Lo que conviene saber:
   puertos en el router ni tocar el firewall, también detrás de CGNAT. Para encontrarse usan un
   *servidor de salas*: un Cloudflare Worker gratuito que monta uno del grupo con un botón
   ([`signal/`](signal/README.md)). El anfitrión pone su dirección en *Ajustes → Jugar con amigos →
-  Servidor de salas* y viaja dentro de la invitación, así que los invitados no configuran nada. El
-  vídeo no pasa por el servidor.
+  Servidor de salas* y viaja dentro de la invitación, así que los invitados no configuran nada. La
+  clave del servidor no viaja: solo el anfitrión la necesita para crear la sala. El vídeo no pasa
+  por el servidor.
 - **Enlaces de sala**: con servidor, la invitación es un enlace a tu Worker
   (`https://emuhub-signal.<cuenta>.workers.dev/j/…`) que se puede pulsar en cualquier chat. Abre una
   página que lanza EmuHub con `emuhub://` y, si no está instalado, explica cómo descargarlo. EmuHub

@@ -16,6 +16,7 @@ import (
 // CheckServer validates the address of a signaling server as the user
 // typed it in the settings: the Worker's URL from signal/, optionally with
 // ?key=… when the Worker is protected with a key. Empty means none.
+// The key lets the host open rooms and never leaves this machine.
 func CheckServer(server string) error {
 	if strings.TrimSpace(server) == "" {
 		return nil
@@ -40,15 +41,15 @@ func parseServer(server string) (*url.URL, error) {
 	return u, nil
 }
 
-// roomURL is the WebSocket address of one room on the server. A key in the
-// server's address travels along.
+// roomURL is the WebSocket address of one room on the server. Only the host
+// sends the server's key: guests are let in by knowing the room's name.
 func roomURL(server string, secret []byte, role string) (string, error) {
 	u, err := parseServer(server)
 	if err != nil {
 		return "", err
 	}
 	q := url.Values{}
-	if k := u.Query().Get("key"); k != "" {
+	if k := u.Query().Get("key"); k != "" && role == "host" {
 		q.Set("key", k)
 	}
 	q.Set("role", role)
@@ -60,7 +61,9 @@ func roomURL(server string, secret []byte, role string) (string, error) {
 
 var (
 	errBadServerKey = errors.New("el servidor de salas rechazó la clave: revisa la dirección en Ajustes → Jugar con amigos, con su ?key=")
-	errNotAServer   = errors.New("la dirección de Ajustes → Jugar con amigos no es un servidor de salas de EmuHub")
+
+	errNotAServer    = errors.New("la dirección de Ajustes → Jugar con amigos no es un servidor de salas de EmuHub")
+	errServerTooLong = errors.New("la dirección del servidor de salas es demasiado larga")
 )
 
 // signalMsg is everything that travels through the signaling server. The

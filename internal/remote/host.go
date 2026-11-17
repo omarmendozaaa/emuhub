@@ -172,7 +172,8 @@ func StartHost(ctx context.Context, opts HostOptions) (*Host, error) {
 			return nil, err
 		}
 		if h.tunnel, tunnelErr = startTunnelHost(ctx, opts.Server, secret, port); tunnelErr == nil {
-			h.invite.Secret, h.invite.Server = secret, opts.Server
+			// Guests get the address without the key; see roomURL.
+			h.invite.Secret, h.invite.Server = secret, publicServer(opts.Server)
 		}
 	}
 	if h.code, err = h.invite.Share(); err != nil {

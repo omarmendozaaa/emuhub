@@ -12,7 +12,7 @@
   "cloudflare": {
     "bindings": {
       "ACCESS_KEY": {
-        "description": "Clave para que solo tus amigos usen tu servidor de salas. Genera una con `openssl rand -hex 8` y guárdala: la necesitarás en EmuHub como …/?key=<clave>."
+        "description": "Clave para que solo tú crees salas en este servidor. Genera una con `openssl rand -hex 16` y guárdala: la pondrás en los Ajustes de EmuHub como …/?key=<clave>. Tus invitados no la necesitan."
       }
     }
   }

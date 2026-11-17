@@ -21,9 +21,9 @@ func TestInviteRoundTrip(t *testing.T) {
 	for _, in := range []Invite{
 		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0007"},
 		{Addrs: addrs("192.168.1.20", "100.64.0.3", "203.0.113.9"), Port: 48089, PIN: "9999"},
-		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://emuhub-signal.omar.workers.dev/?key=0123456789abcdef"},
+		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://emuhub-signal.omar.workers.dev"},
 		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://salas.workers.dev"},
-		{Addrs: addrs("10.0.0.2"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "http://127.0.0.1:8787/emuhub?key=Mi+Clave%21"},
+		{Addrs: addrs("10.0.0.2"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "http://127.0.0.1:8787/emuhub"},
 	} {
 		code, err := in.Encode()
 		if err != nil {
@@ -224,7 +224,7 @@ func TestMarkReady(t *testing.T) {
 func TestInviteLink(t *testing.T) {
 	in := Invite{
 		Addrs: addrs("192.168.18.12", "100.101.102.103"), Port: 47989, PIN: "0420",
-		Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://emuhub-signal.omar.workers.dev/?key=0123456789abcdef",
+		Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://emuhub-signal.omar.workers.dev",
 	}
 	link, err := in.Share()
 	if err != nil {
@@ -251,7 +251,7 @@ func TestInviteLink(t *testing.T) {
 		}
 	}
 	// A server under a path keeps it.
-	in.Server = "http://127.0.0.1:8787/emuhub?key=k"
+	in.Server = "http://127.0.0.1:8787/emuhub"
 	if link, _ = in.Link(); link[:len("http://127.0.0.1:8787/emuhub/j/")] != "http://127.0.0.1:8787/emuhub/j/" {
 		t.Errorf("link %q", link)
 	}
@@ -268,5 +268,20 @@ func TestInviteLink(t *testing.T) {
 	lan := Invite{Addrs: addrs("192.168.18.12"), Port: 47989, PIN: "0420"}
 	if s, _ := lan.Share(); !strings.HasPrefix(s, "EH-") {
 		t.Errorf("share %q", s)
+	}
+}
+
+func TestInviteLeavesKeyOut(t *testing.T) {
+	if got := publicServer(" https://emuhub-signal.omar.workers.dev/?key=s3creto#x"); got != "https://emuhub-signal.omar.workers.dev/" {
+		t.Errorf("public %q", got)
+	}
+	in := Invite{Addrs: addrs("10.0.0.2"), Port: 47989, PIN: "0420", Secret: []byte("12345678"), Server: "https://a.workers.dev/?key=s3creto"}
+	link, err := in.Link()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := DecodeInvite(link)
+	if err != nil || strings.Contains(link, "s3creto") || got.Server != "https://a.workers.dev" {
+		t.Errorf("%q: %+v %v", link, got, err)
 	}
 }

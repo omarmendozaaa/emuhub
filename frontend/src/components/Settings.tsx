@@ -111,7 +111,7 @@ function General(p: Props) {
             </p>
             <TextSetting
                 label="Servidor de salas"
-                hint="Para que entren amigos de otras redes a tus salas. EmuHub conecta los equipos directamente con un túnel, sin abrir puertos en el router ni en el firewall. Pega la dirección de tu servidor con su ?key=; va dentro del código de sala, así que tus invitados no tienen que configurar nada. Sin servidor, tus salas funcionan en tu red local y por VPN."
+                hint="Para que entren amigos de otras redes a tus salas. EmuHub conecta los equipos directamente con un túnel, sin abrir puertos en el router ni en el firewall. Pega la dirección de tu servidor con su ?key=. Tus invitaciones llevan la dirección pero no la clave, así que tus invitados no configuran nada. Sin servidor, tus salas funcionan en tu red local y por VPN."
                 placeholder="https://emuhub-signal.tu-cuenta.workers.dev/?key=…"
                 value={p.settings.remoteServer ?? ''}
                 onSave={v => save({remoteServer: v.trim()})}

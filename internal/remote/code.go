@@ -22,8 +22,8 @@ type Invite struct {
 	// Secret names the room on the signaling server and authenticates the
 	// tunnel through it. Empty when the host offers no tunnel.
 	Secret []byte
-	// Server is the signaling server where the tunnel is set up, with its
-	// key. Present exactly when Secret is.
+	// Server is the signaling server where the tunnel is set up, without
+	// its key. Present exactly when Secret is.
 	Server string
 }
 

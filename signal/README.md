@@ -18,7 +18,7 @@ Cada grupo de amigos monta el suyo en un par de minutos.
 
 1. Pulsa el botón e inicia sesión en Cloudflare (la cuenta gratuita sirve).
 2. Cuando pida `ACCESS_KEY`, escribe una clave larga y apúntala (por ejemplo, la salida de
-   `openssl rand -hex 8`).
+   `openssl rand -hex 16`). Solo la usarás tú, para hostear.
 3. Al terminar, Cloudflare muestra la dirección del Worker, del tipo
    `https://emuhub-signal.<tu-subdominio>.workers.dev`.
 
@@ -48,14 +48,17 @@ salas*:
 https://emuhub-signal.<tu-subdominio>.workers.dev/?key=<tu-clave>
 ```
 
-La dirección y la clave viajan dentro de cada código de sala, así que los invitados no tienen que
-configurar nada, y cualquiera con un código puede usar tu servidor para entrar en tus salas: pásalos
-solo a tus amigos. Sin la clave correcta el servidor responde 403. Para cambiarla, repite
-`wrangler secret put ACCESS_KEY` y actualiza la dirección en Ajustes; los códigos antiguos dejarán
-de servir.
+**La clave es solo para quien hostea**: con ella EmuHub crea las salas en tu servidor, y nunca
+sale de tu equipo. Las invitaciones llevan la dirección del servidor sin la clave, así que tus
+invitados no configuran nada y nadie puede usar tu servidor para crear sus propias salas.
 
-Usa una clave en hexadecimal en minúsculas (como la de `openssl rand -hex 8`): ocupa la mitad
-dentro del código de sala.
+Los invitados entran sin clave porque el servidor solo les deja hablar con una sala que tenga a su
+anfitrión conectado, y para encontrarla necesitan su nombre: un hash del secreto de la invitación,
+nuevo en cada sala. En la práctica es una clave por sala que caduca al cerrarla: una invitación
+antigua no sirve para nada.
+
+Sin la clave correcta el servidor responde 403 al anfitrión. Para cambiarla, repite
+`wrangler secret put ACCESS_KEY` y actualiza la dirección en Ajustes.
 
 ## Probar en local
 
@@ -77,13 +80,14 @@ https://emuhub-signal.<tu-subdominio>.workers.dev/j/<invitación>
 
 El Worker sirve ahí una página pequeña que abre EmuHub con `emuhub://join/<invitación>` y, si no se
 abre, explica cómo pegar el enlace o descargar EmuHub. La invitación entera (direcciones, PIN,
-secreto del túnel y dirección del servidor con su clave) va en el enlace: el servidor no guarda nada
-y la página no pide la clave.
+secreto del túnel y dirección del servidor, sin la clave) va en el enlace: el servidor no guarda
+nada.
 
 ## Protocolo
 
-`GET /v1/rooms/<sala>?role=host|guest[&key=<ACCESS_KEY>]` con cabecera de WebSocket. `<sala>` son
-32 caracteres hexadecimales: un hash del secreto que va en el código de sala.
+`GET /v1/rooms/<sala>?role=host|guest` con cabecera de WebSocket; el anfitrión añade
+`&key=<ACCESS_KEY>`. `<sala>` son 32 caracteres hexadecimales: un hash del secreto que va en la
+invitación.
 
 - El anfitrión mantiene su WebSocket abierto mientras la sala existe y envía `ping` cada 30 s
   (el servidor responde `pong` sin despertar).

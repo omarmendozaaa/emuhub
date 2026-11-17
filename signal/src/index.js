@@ -37,14 +37,16 @@ export default {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("expected websocket\n", { status: 426 });
     }
-    // Con la clave puesta (wrangler secret put ACCESS_KEY), solo entra quien
-    // la lleve en la dirección: https://…/?key=<clave>.
-    if (env.ACCESS_KEY && !sameKey(url.searchParams.get("key") || "", env.ACCESS_KEY)) {
-      return new Response("forbidden\n", { status: 403 });
-    }
     const role = url.searchParams.get("role");
     if (role !== "host" && role !== "guest") {
       return new Response("bad role\n", { status: 400 });
+    }
+    // Con la clave puesta (wrangler secret put ACCESS_KEY), solo crea salas
+    // quien la lleve: https://…/?key=<clave>. Los invitados no la necesitan:
+    // solo pueden hablar con una sala que tenga anfitrión, y para encontrarla
+    // hace falta su nombre, un hash del secreto de la invitación.
+    if (role === "host" && env.ACCESS_KEY && !sameKey(url.searchParams.get("key") || "", env.ACCESS_KEY)) {
+      return new Response("forbidden\n", { status: 403 });
     }
     const room = env.ROOMS.get(env.ROOMS.idFromName(key));
     return room.fetch(request);
