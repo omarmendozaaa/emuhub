@@ -96,7 +96,7 @@ archivos como juegos: ignora las BIOS válidas y las carpetas llamadas `bios`, `
 ### Primera ejecución en cada sistema
 
 - **Windows**: SmartScreen avisará porque el ejecutable no está firmado → *Más información → Ejecutar de todas formas*.
-- **macOS**: descarga la versión `arm64` (Apple Silicon) o `amd64` (Intel). La primera vez: clic derecho → *Abrir*, o `xattr -cr EmuHub.app`.
+- **macOS**: no se publica en las releases; compílalo en un Mac con `scripts/build-release.sh darwin-arm64` (Apple Silicon) o `darwin-amd64` (Intel). La primera vez: clic derecho → *Abrir*, o `xattr -cr EmuHub.app`.
 - **Linux**: `chmod +x EmuHub-*-linux-x86_64`. Requiere WebKitGTK 4.1 (`libwebkit2gtk-4.1`), presente en casi todos los escritorios.
 
 ### Jugar con amigos
@@ -212,7 +212,7 @@ scripts/build-release.sh darwin-arm64    # desde macOS (también darwin-amd64)
 
 ### Releases automáticas
 
-El workflow [`release.yml`](.github/workflows/release.yml) compila Linux, Windows y macOS (arm64 e Intel):
+El workflow [`release.yml`](.github/workflows/release.yml) compila Linux y Windows (macOS se compila a mano en un Mac):
 
 - Cada push a `main` y cada pull request ejecuta los tests y genera los binarios como *artifacts*.
 - Al publicar un tag `v*` (`git tag v0.1.0 && git push --tags`) se crea una **GitHub Release** con todos los ejecutables.
