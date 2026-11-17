@@ -10,7 +10,7 @@ import {Carousel} from './components/Carousel'
 import {GameList} from './components/GameList'
 import {GameMenu, gameMenuItems} from './components/GameMenu'
 import {Glyph, Hint} from './components/Glyph'
-import {GuestSession, HostBadge, HostRoom, HostSetup, JoinRoom, playerRange, RoomSetup} from './components/Remote'
+import {GuestSession, HostBadge, HostRoom, HostSetup, JoinRoom, playerRange, RoomSetup, roomReady} from './components/Remote'
 import {CoverProgress, Settings} from './components/Settings'
 import {Action, blip, useInput} from './input'
 import {backdropUrl, coverUrl, errorText, formatAgo, formatPlaytime, Game} from './util'
@@ -296,7 +296,7 @@ export default function App() {
             if (a === 'down' && seatCount) { blip('move'); setSeat(s => (s + 1) % seatCount) }
             if (a === 'square' && canMoveSeat) { blip('ok'); setMoving(true) }
             if (a === 'triangle') copyCode()
-            if (a === 'confirm') play(games.find(g => g.id === remote.gameId))
+            if (a === 'confirm' && roomReady(remote)) play(games.find(g => g.id === remote.gameId))
             if (a === 'back') { blip('back'); StopHosting() }
             return
         }

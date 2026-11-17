@@ -22,3 +22,12 @@ func Gamepads() int {
 	}
 	return n
 }
+
+// PadCounts tells apart the host's own gamepads from the ones Sunshine
+// created for guests. XInput does not say which is which, so the host's are
+// the ones that were there when the room opened.
+func PadCounts(hostAtOpen int) (host, guests int) {
+	n := Gamepads()
+	host = min(n, hostAtOpen)
+	return host, n - host
+}

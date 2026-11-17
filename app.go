@@ -314,7 +314,9 @@ func (a *App) LaunchGame(id string) error {
 	if err != nil {
 		return err
 	}
-	a.waitGuestPads(g)
+	if err := a.roomReady(g); err != nil {
+		return err
+	}
 	// Taken before a.mu, which roomGameEnv locks itself.
 	roomEnv := a.roomGameEnv()
 	// In a room, each seat's gamepad is written into the emulator's config

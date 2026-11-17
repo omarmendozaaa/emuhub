@@ -311,6 +311,8 @@ export namespace remote {
 	export class Seat {
 	    kind: string;
 	    guest: number;
+	    ready: boolean;
+	    input: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Seat(source);
@@ -320,6 +322,8 @@ export namespace remote {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.kind = source["kind"];
 	        this.guest = source["guest"];
+	        this.ready = source["ready"];
+	        this.input = source["input"];
 	    }
 	}
 

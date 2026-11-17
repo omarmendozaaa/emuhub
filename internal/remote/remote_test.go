@@ -192,3 +192,31 @@ func TestPadIndexes(t *testing.T) {
 		t.Errorf("solo hosteo: %v", got)
 	}
 }
+
+func TestMarkReady(t *testing.T) {
+	seats := []Seat{{Kind: "host"}, {Kind: "guest", Guest: 1}, {Kind: "guest", Guest: 2}, {}}
+	got := MarkReady(seats, 0, 1)
+	want := []Seat{
+		{Kind: "host", Ready: true, Input: "teclado"},
+		{Kind: "guest", Guest: 1, Ready: true, Input: "mando"},
+		{Kind: "guest", Guest: 2},
+		{},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v", got)
+	}
+	if AllReady(got) {
+		t.Fatal("guest 2 has no gamepad yet")
+	}
+	got = MarkReady(seats, 1, 2)
+	if got[0].Input != "mando" || !AllReady(got) {
+		t.Fatalf("everyone seated should be ready: %+v", got)
+	}
+	// A guest who leaves takes their gamepad with them.
+	if AllReady(MarkReady(got, 1, 1)) {
+		t.Fatal("a guest without gamepad is not ready")
+	}
+	if AllReady([]Seat{{}, {}}) {
+		t.Fatal("nobody to play")
+	}
+}

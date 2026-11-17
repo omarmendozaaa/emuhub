@@ -7,6 +7,11 @@ type Seat struct {
 	Kind string `json:"kind"`
 	// Guest is the guest's number in order of arrival, from 1.
 	Guest int `json:"guest"`
+	// Ready says this player's input already reaches the host: for a guest,
+	// Sunshine has created their gamepad.
+	Ready bool `json:"ready"`
+	// Input is what the player plays with: "mando", "teclado" or "".
+	Input string `json:"input"`
 }
 
 // MaxSeats is the most players a room deals with.
@@ -91,4 +96,45 @@ func PadIndexes(seats []Seat, hostPads int) []int {
 		}
 	}
 	return out
+}
+
+// MarkReady fills in who is ready to play. The host plays with their own
+// gamepad or, without one, the keyboard. A guest is ready once Sunshine has
+// created their gamepad, which happens when they press a button; Sunshine
+// does not say whose each pad is, so they count in order of arrival, the
+// same order PadIndexes gives the emulator.
+func MarkReady(seats []Seat, hostPads, guestPads int) []Seat {
+	out := make([]Seat, len(seats))
+	for i, s := range seats {
+		s.Ready, s.Input = false, ""
+		switch s.Kind {
+		case "host":
+			s.Ready, s.Input = true, "teclado"
+			if hostPads > 0 {
+				s.Input = "mando"
+			}
+		case "guest":
+			if s.Guest <= guestPads {
+				s.Ready, s.Input = true, "mando"
+			}
+		}
+		out[i] = s
+	}
+	return out
+}
+
+// AllReady reports whether there is someone to play and everyone seated is
+// ready. Free seats do not hold the game back.
+func AllReady(seats []Seat) bool {
+	seated := 0
+	for _, s := range seats {
+		if s.Kind == "" {
+			continue
+		}
+		if !s.Ready {
+			return false
+		}
+		seated++
+	}
+	return seated > 0
 }

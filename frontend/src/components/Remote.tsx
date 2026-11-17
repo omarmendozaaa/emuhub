@@ -43,6 +43,24 @@ function freeSeats(seats: remote.Seat[]): number {
     return seats.filter(s => !s.kind).length
 }
 
+/** Seated players whose input does not reach the host yet. */
+function waitingSeats(seats: remote.Seat[]): remote.Seat[] {
+    return seats.filter(s => s.kind && !s.ready)
+}
+
+/** Whether the room's game can start: someone seated and everyone seated ready. */
+export function roomReady(state: main.RemoteState): boolean {
+    const seats = state.seats ?? []
+    return seats.some(s => s.kind) && waitingSeats(seats).length === 0
+}
+
+/** What a seat's player is doing, for the seat list. */
+function seatStatus(s: remote.Seat): string {
+    if (s.kind === 'host') return `Anfitrión · ${s.input === 'mando' ? 'con mando' : 'con teclado'}`
+    if (s.kind === 'guest') return s.ready ? 'Conectado · con mando' : 'Esperando su mando: que pulse un botón'
+    return 'Esperando a un invitado'
+}
+
 /** What the host chooses before the room opens. */
 export interface RoomSetup {
     gameId: string
@@ -139,9 +157,11 @@ function Seats({state, selected, moving, onSelect}: {
                         <span className="seat-num">J{i + 1}</span>
                         <span className="seat-who">
                             <b>{seatName(s)}</b>
-                            <span>{s.kind === 'host' ? 'Anfitrión' : s.kind === 'guest' ? 'Conectado' : 'Esperando a un invitado'}</span>
+                            <span>{seatStatus(s)}</span>
                         </span>
-                        {mine && moving && <span className="seat-tag">Moviendo · ▲ ▼</span>}
+                        {mine && moving
+                            ? <span className="seat-tag">Moviendo · ▲ ▼</span>
+                            : s.kind && <span className={`seat-ready ${s.ready ? 'ok' : 'wait'}`}><span className="dot"/>{s.ready ? 'Listo' : 'Sin mando'}</span>}
                     </li>
                 )
             })}
@@ -159,6 +179,8 @@ export function HostRoom({state, game, selected, moving, onSelect, onMoving, onS
     const seats = state.seats ?? []
     const free = freeSeats(seats)
     const filled = seats.length - free
+    const waiting = waitingSeats(seats)
+    const ready = roomReady(state)
     const canMove = state.seatControl && !!seats[selected]?.kind
     const copy = async () => {
         if (await ClipboardSetText(state.code)) onCopied()
@@ -180,9 +202,17 @@ export function HostRoom({state, game, selected, moving, onSelect, onMoving, onS
                     <>
                         <CodeBox code={state.code} onCopied={onCopied}/>
                         <Seats state={state} selected={selected} moving={moving} onSelect={i => { onSelect(i); onMoving(false) }}/>
-                        {free === 0
-                            ? <p className="room-note note-ok">{moving ? 'Sube o baja al jugador y confirma.' : 'Todos sentados. Puedes empezar.'}</p>
-                            : <p className="room-note note-warn">{free === 1 ? 'Falta 1 jugador' : `Faltan ${free} jugadores`}. Envía el código o empieza con los que hay.</p>}
+                        {moving
+                            ? <p className="room-note note-ok">Sube o baja al jugador y confirma.</p>
+                            : waiting.length > 0
+                                ? <p className="room-note note-warn">
+                                    {waiting.map(seatName).join(', ')} {waiting.length === 1 ? 'aún no está listo' : 'aún no están listos'}: pide que pulse{waiting.length === 1 ? '' : 'n'} un botón de su mando. La partida no puede empezar hasta entonces.
+                                </p>
+                                : free === 0
+                                    ? <p className="room-note note-ok">Todos listos. Puedes empezar.</p>
+                                    : filled > 0
+                                        ? <p className="room-note note-warn">{free === 1 ? 'Falta 1 jugador' : `Faltan ${free} jugadores`}. Envía el código o empieza con los que están listos.</p>
+                                        : <p className="room-note note-warn">Envía el código a tus amigos para que entren.</p>}
                         {!state.seatControl && (
                             <p className="muted small">
                                 Con este emulador el número de jugador lo decide el orden en que se conectan los mandos; EmuHub no puede cambiarlo.
@@ -196,8 +226,8 @@ export function HostRoom({state, game, selected, moving, onSelect, onMoving, onS
                 )}
                 <div className="row-actions">
                     {!starting && (
-                        <button className="btn primary" disabled={filled === 0} onClick={onStart}>
-                            {free === 0 ? 'Empezar partida' : `Empezar con ${filled} de ${seats.length}`}
+                        <button className="btn primary" disabled={!ready} onClick={onStart}>
+                            {filled > 0 && !ready ? 'Esperando a los jugadores…' : free === 0 ? 'Empezar partida' : `Empezar con ${filled} de ${seats.length}`}
                         </button>
                     )}
                     {!starting && canMove && (
@@ -214,7 +244,7 @@ export function HostRoom({state, game, selected, moving, onSelect, onMoving, onS
                             </>
                         ) : (
                             <>
-                                <Hint kind="cross" label="Empezar" onClick={onStart}/>
+                                {ready && <Hint kind="cross" label="Empezar" onClick={onStart}/>}
                                 {canMove && <Hint kind="square" label="Mover jugador" onClick={() => onMoving(true)}/>}
                                 <Hint kind="triangle" label="Copiar código" onClick={copy}/>
                                 <Hint kind="circle" label="Cerrar" onClick={onClose}/>
@@ -321,6 +351,7 @@ export function GuestSession({state, onLeave}: { state: main.RemoteState, onLeav
             <div className="running-title">{playing ? 'Jugando en línea' : state.message || 'Conectando…'}</div>
             <PadStatus pads={pads}/>
             {pads === 0 && <p className="muted small">Conecta un mando por cable o Bluetooth; no hace falta salir de la sala.</p>}
+            {playing && pads > 0 && <p className="muted small">Pulsa un botón de tu mando: así el anfitrión te ve listo y puede empezar la partida.</p>}
             {playing && <p className="muted small">Para salir desde el juego: Ctrl + Alt + Mayús + Q.</p>}
             <button className="btn" onClick={onLeave}>{playing ? 'Salir de la sala' : 'Cancelar'}</button>
         </div>

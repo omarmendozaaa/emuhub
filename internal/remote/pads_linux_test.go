@@ -23,7 +23,8 @@ N: Name="Razer Razer Huntsman Mini Keyboard"
 H: Handlers=sysrq kbd event3 
 B: KEY=1000000000007 ff9f207ac14057ff febeffdfffefffff fffffffffffffffe
 `
-	if got := countGamepads(devices); got != 2 {
-		t.Fatalf("got %d gamepads, want 2 (the virtual mouse is not one)", got)
+	// The virtual mouse is not a gamepad.
+	if host, guests := countGamepads(devices); host != 1 || guests != 1 {
+		t.Fatalf("got %d host and %d guest gamepads, want 1 and 1", host, guests)
 	}
 }
