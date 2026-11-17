@@ -40,7 +40,7 @@ function CodeBox({code, onCopied}: { code: string, onCopied: () => void }) {
 }
 
 function seatName(s: remote.Seat): string {
-    return s.kind === 'host' ? 'Tú' : s.kind === 'guest' ? `Invitado ${s.guest}` : 'Libre'
+    return s.kind === 'host' ? 'Tú' : s.kind === 'guest' ? s.name || `Invitado ${s.guest}` : 'Libre'
 }
 
 function freeSeats(seats: remote.Seat[]): number {
@@ -284,10 +284,12 @@ function PadStatus({pads}: { pads: number }) {
 
 /** Where a guest types or pastes the code a friend sent. */
 export function JoinRoom({support, initial, onJoin, onClose}: {
-    support: main.RemoteSupport | null, initial?: string, onJoin: (code: string) => Promise<boolean>, onClose: () => void,
+    support: main.RemoteSupport | null, initial?: string,
+    onJoin: (code: string, keyboard: boolean) => Promise<boolean>, onClose: () => void,
 }) {
     const [code, setCode] = useState(initial ?? '')
     const [busy, setBusy] = useState(false)
+    const [keyboard, setKeyboard] = useState(false)
     const input = useRef<HTMLInputElement>(null)
     const pads = usePads()
     useEffect(() => input.current?.focus(), [])
@@ -295,7 +297,7 @@ export function JoinRoom({support, initial, onJoin, onClose}: {
     const join = async (value = code) => {
         if (!value.trim() || busy) return
         setBusy(true)
-        if (!await onJoin(value.trim())) setBusy(false)
+        if (!await onJoin(value.trim(), keyboard)) setBusy(false)
     }
     const paste = async () => {
         const text = (await ClipboardGetText()).trim()
@@ -330,11 +332,36 @@ export function JoinRoom({support, initial, onJoin, onClose}: {
                             />
                             <button type="button" className="btn" onClick={paste}>Pegar</button>
                         </form>
-                        <PadStatus pads={pads}/>
-                        {pads === 0 && (
+                        {keyboard ? <p className="pad-status ok"><span className="dot"/>Jugarás con el teclado</p> : <PadStatus pads={pads}/>}
+                        {pads === 0 && !keyboard && (
                             <p className="room-note note-warn">
-                                Sin mando ves la partida pero no puedes jugar: tu teclado y tu ratón no se envían. Conéctalo antes de entrar.
+                                Sin mando ves la partida pero no puedes jugar. Conecta uno antes de entrar{support?.keyboard ? ' o juega con el teclado' : ''}.
                             </p>
+                        )}
+                        <label className={`toggle ${support?.keyboard ? '' : 'toggle-disabled'}`}>
+                            <div>
+                                <div>Jugar con teclado</div>
+                                <div className="muted small">
+                                    {support?.keyboard
+                                        ? 'EmuHub convierte tu teclado en un mando, y el anfitrión te ve como un jugador más.'
+                                        : support?.keyboardReason}
+                                </div>
+                            </div>
+                            <input type="checkbox" checked={keyboard} disabled={!support?.keyboard}
+                                   onChange={e => setKeyboard(e.target.checked)}/>
+                            <span className="switch"/>
+                        </label>
+                        {keyboard && (
+                            <table className="key-layout">
+                                <tbody>
+                                    {(support?.keyboardLayout ?? []).map(b => (
+                                        <tr key={b.keys}><td><kbd>{b.keys}</kbd></td><td>{b.action}</td></tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                        {keyboard && pads > 0 && (
+                            <p className="room-note note-warn">También tienes un mando conectado: contará como otro jugador. Desconéctalo si solo quieres jugar con el teclado.</p>
                         )}
                         <p className="muted small">El anfitrión decide qué jugador eres desde su sala.</p>
                     </>

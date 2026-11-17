@@ -225,7 +225,7 @@ func TestTunnel(t *testing.T) {
 	defer cancel()
 
 	// Nobody is hosting this room yet.
-	if _, err := dialTunnel(ctx, guestServer, Invite{Port: base, Secret: secret}); !errors.Is(err, errNoTunnelHost) {
+	if _, err := dialTunnel(ctx, guestServer, Invite{Port: base, Secret: secret}, "Ana"); !errors.Is(err, errNoTunnelHost) {
 		t.Fatalf("without host: %v", err)
 	}
 
@@ -237,7 +237,7 @@ func TestTunnel(t *testing.T) {
 
 	var g *tunnelGuest
 	for range 20 {
-		g, err = dialTunnel(ctx, guestServer, Invite{Port: base, Secret: secret})
+		g, err = dialTunnel(ctx, guestServer, Invite{Port: base, Secret: secret}, "Ana")
 		if !errors.Is(err, errNoTunnelHost) {
 			break
 		}
@@ -264,6 +264,22 @@ func TestTunnel(t *testing.T) {
 		c.Close()
 		if err != nil || !bytes.Equal(got, msg) {
 			t.Fatalf("tcp %d: %d bytes back, %v", p, len(got), err)
+		}
+	}
+
+	// Pairing requests on the HTTP port carry the guest's name.
+	{
+		c, err := net.Dial("tcp", hostPort(tunnelListen, base))
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Write([]byte("GET /pair?devicename=roth&x=1 HTTP/1.1\r\n\r\n"))
+		c.(*net.TCPConn).CloseWrite()
+		c.SetReadDeadline(time.Now().Add(10 * time.Second))
+		got, _ := io.ReadAll(c)
+		c.Close()
+		if !bytes.Contains(got, []byte("devicename=Ana&")) {
+			t.Errorf("pairing request reached the host as %q", got)
 		}
 	}
 
@@ -300,7 +316,7 @@ func TestTunnel(t *testing.T) {
 	// A guest with the wrong secret lands in another room.
 	other := append([]byte(nil), secret...)
 	other[0] ^= 1
-	if _, err := dialTunnel(ctx, guestServer, Invite{Port: base + 100, Secret: other}); !errors.Is(err, errNoTunnelHost) {
+	if _, err := dialTunnel(ctx, guestServer, Invite{Port: base + 100, Secret: other}, ""); !errors.Is(err, errNoTunnelHost) {
 		t.Errorf("wrong secret: %v", err)
 	}
 

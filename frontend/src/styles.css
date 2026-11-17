@@ -946,6 +946,24 @@ kbd {
 
 .room-code-note { margin: -6px 0 12px; }
 
+.room .toggle { margin-bottom: 8px; }
+
+.toggle-disabled { opacity: 0.55; cursor: default; }
+
+.key-layout { width: 100%; border-collapse: collapse; margin: 4px 0 12px; font-size: 13px; }
+
+.key-layout td { padding: 4px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+
+.key-layout td:first-child { width: 48%; color: inherit; }
+
+.key-layout kbd {
+    font: 600 12px ui-monospace, monospace;
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.06);
+}
+
 /* Rooms: who plays, in which seat. */
 
 .room.wide { width: min(600px, 92vw); }
@@ -1017,7 +1035,7 @@ kbd {
 
 .seat-who { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
 
-.seat-who b { font-weight: 600; }
+.seat-who b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .seat.seat-free .seat-who b { color: var(--muted); }
 

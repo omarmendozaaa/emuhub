@@ -55,6 +55,7 @@ export namespace library {
 	    autoCovers: boolean;
 	    remoteHd: boolean;
 	    remoteServer: string;
+	    remoteName: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -66,6 +67,7 @@ export namespace library {
 	        this.autoCovers = source["autoCovers"];
 	        this.remoteHd = source["remoteHd"];
 	        this.remoteServer = source["remoteServer"];
+	        this.remoteName = source["remoteName"];
 	    }
 	}
 
@@ -273,6 +275,9 @@ export namespace main {
 	    hostReason: string;
 	    guest: boolean;
 	    guestReason: string;
+	    keyboard: boolean;
+	    keyboardReason: string;
+	    keyboardLayout: remote.KeyBinding[];
 	
 	    static createFrom(source: any = {}) {
 	        return new RemoteSupport(source);
@@ -284,7 +289,28 @@ export namespace main {
 	        this.hostReason = source["hostReason"];
 	        this.guest = source["guest"];
 	        this.guestReason = source["guestReason"];
+	        this.keyboard = source["keyboard"];
+	        this.keyboardReason = source["keyboardReason"];
+	        this.keyboardLayout = this.convertValues(source["keyboardLayout"], remote.KeyBinding);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	
 	export class RoomLimits {
@@ -308,9 +334,24 @@ export namespace main {
 
 export namespace remote {
 	
+	export class KeyBinding {
+	    keys: string;
+	    action: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new KeyBinding(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.keys = source["keys"];
+	        this.action = source["action"];
+	    }
+	}
 	export class Seat {
 	    kind: string;
 	    guest: number;
+	    name: string;
 	    ready: boolean;
 	    input: string;
 	
@@ -322,6 +363,7 @@ export namespace remote {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.kind = source["kind"];
 	        this.guest = source["guest"];
+	        this.name = source["name"];
 	        this.ready = source["ready"];
 	        this.input = source["input"];
 	    }

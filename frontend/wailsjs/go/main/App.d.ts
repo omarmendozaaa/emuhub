@@ -5,6 +5,8 @@ import {main} from '../models';
 
 export function ChooseCover(arg1:string):Promise<library.Game>;
 
+export function DefaultPlayerName():Promise<string>;
+
 export function DetectEmulators(arg1:string):Promise<Array<library.DetectedEmulator>>;
 
 export function FetchCovers():Promise<void>;
@@ -25,7 +27,7 @@ export function GetSettings():Promise<library.Settings>;
 
 export function HostGame(arg1:string,arg2:number,arg3:boolean):Promise<main.RemoteState>;
 
-export function JoinGame(arg1:string):Promise<void>;
+export function JoinGame(arg1:string,arg2:boolean):Promise<void>;
 
 export function LaunchGame(arg1:string):Promise<void>;
 

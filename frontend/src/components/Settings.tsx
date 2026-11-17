@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
 import type {library, main} from '../../wailsjs/go/models'
 import {
-    DetectEmulators, OpenBIOSFolder, PickExecutable, PickFolder, SaveConsoleConfig, SaveSettings,
+    DefaultPlayerName, DetectEmulators, OpenBIOSFolder, PickExecutable, PickFolder, SaveConsoleConfig, SaveSettings,
 } from '../../wailsjs/go/main/App'
 import {errorText} from '../util'
 
@@ -70,6 +70,8 @@ function General(p: Props) {
         }
     }
     const ready = p.consoles.filter(c => c.ready).length
+    const [defaultName, setDefaultName] = useState('')
+    useEffect(() => { DefaultPlayerName().then(setDefaultName) }, [])
     return (
         <div className="panel">
             <h3>Biblioteca</h3>
@@ -105,10 +107,18 @@ function General(p: Props) {
             <h3>Jugar con amigos</h3>
             <p className="muted small">
                 Abre una sala desde las opciones de un juego (<b>Invitar a un amigo</b>) y comparte el código. Tu amigo entra con
-                <b> Unirse a una sala</b> y juega con su mando como jugador 2, sin necesitar el juego: lo ve desde tu equipo.
+                <b> Unirse a una sala</b> y juega con su mando, o con su teclado, sin necesitar el juego: lo ve desde tu equipo.
                 {p.support && !p.support.host && <span className="error-text"> No puedes crear salas: {p.support.hostReason}.</span>}
                 {p.support && !p.support.guest && <span className="error-text"> No puedes unirte a salas: {p.support.guestReason}.</span>}
             </p>
+            <TextSetting
+                label="Tu nombre en las salas"
+                hint="Así te ven tus amigos cuando entras en sus salas. Si lo dejas vacío se usa el nombre de tu usuario en este equipo."
+                placeholder={defaultName || 'Tu nombre'}
+                value={p.settings.remoteName ?? ''}
+                maxLength={24}
+                onSave={v => save({remoteName: v.trim()})}
+            />
             <TextSetting
                 label="Servidor de salas"
                 hint="Para que entren amigos de otras redes a tus salas. EmuHub conecta los equipos directamente con un túnel, sin abrir puertos en el router ni en el firewall. Pega la dirección de tu servidor con su ?key=. Tus invitaciones llevan la dirección pero no la clave, así que tus invitados no configuran nada. Sin servidor, tus salas funcionan en tu red local y por VPN."
@@ -162,8 +172,8 @@ function General(p: Props) {
     )
 }
 
-function TextSetting({label, hint, placeholder, value, onSave}: {
-    label: string, hint?: string, placeholder?: string, value: string, onSave: (v: string) => void
+function TextSetting({label, hint, placeholder, value, maxLength, onSave}: {
+    label: string, hint?: string, placeholder?: string, value: string, maxLength?: number, onSave: (v: string) => void
 }) {
     const [text, setText] = useState(value)
     useEffect(() => setText(value), [value])
@@ -175,6 +185,7 @@ function TextSetting({label, hint, placeholder, value, onSave}: {
                 className="text"
                 value={text}
                 placeholder={placeholder}
+                maxLength={maxLength}
                 spellCheck={false}
                 autoComplete="off"
                 onChange={e => setText(e.target.value)}

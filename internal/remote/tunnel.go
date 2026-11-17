@@ -346,16 +346,20 @@ type halfCloser interface {
 }
 
 // pipe copies both ways. Each direction passes its end of stream on, as TCP
-// does, and both ends close once both directions are done.
-func pipe(a, b halfCloser) {
+// does, and both ends close once both directions are done. copyIn, when not
+// nil, copies from b to a in place of io.Copy.
+func pipe(a, b halfCloser, copyIn func(io.Writer, io.Reader) (int64, error)) {
 	done := make(chan struct{}, 2)
-	cp := func(dst, src halfCloser) {
-		io.Copy(dst, src)
+	cp := func(dst, src halfCloser, copy func(io.Writer, io.Reader) (int64, error)) {
+		copy(dst, src)
 		dst.CloseWrite()
 		done <- struct{}{}
 	}
-	go cp(a, b)
-	go cp(b, a)
+	if copyIn == nil {
+		copyIn = io.Copy
+	}
+	go cp(a, b, copyIn)
+	go cp(b, a, io.Copy)
 	<-done
 	<-done
 	a.Close()

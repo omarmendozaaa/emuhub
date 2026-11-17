@@ -55,6 +55,9 @@ type Settings struct {
 	// ?key=…. It travels in the room code. Empty keeps rooms to the local
 	// network and VPNs.
 	RemoteServer string `json:"remoteServer"`
+	// RemoteName is how hosts see this player in their rooms. Empty uses
+	// the user's name on this computer.
+	RemoteName string `json:"remoteName"`
 }
 
 type fileData struct {

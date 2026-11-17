@@ -6,6 +6,10 @@ export function ChooseCover(arg1) {
   return window['go']['main']['App']['ChooseCover'](arg1);
 }
 
+export function DefaultPlayerName() {
+  return window['go']['main']['App']['DefaultPlayerName']();
+}
+
 export function DetectEmulators(arg1) {
   return window['go']['main']['App']['DetectEmulators'](arg1);
 }
@@ -46,8 +50,8 @@ export function HostGame(arg1, arg2, arg3) {
   return window['go']['main']['App']['HostGame'](arg1, arg2, arg3);
 }
 
-export function JoinGame(arg1) {
-  return window['go']['main']['App']['JoinGame'](arg1);
+export function JoinGame(arg1, arg2) {
+  return window['go']['main']['App']['JoinGame'](arg1, arg2);
 }
 
 export function LaunchGame(arg1) {
