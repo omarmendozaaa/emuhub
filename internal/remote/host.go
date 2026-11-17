@@ -64,6 +64,8 @@ type Host struct {
 	invite  Invite
 	code    string
 	warning string
+	audio   *gameAudio
+	stopped sync.Once
 
 	mu     sync.Mutex
 	guests int
@@ -116,25 +118,34 @@ func StartHost(ctx context.Context, opts HostOptions) (*Host, error) {
 		// here over loopback.
 		client: &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
 	}
+	audio, audioErr := startGameAudio()
+	if audioErr == nil {
+		h.audio = audio
+	}
 	conf, err := h.writeConfig(port)
 	if err != nil {
+		h.Stop()
 		return nil, err
 	}
 
 	// Sunshine stores a salted hash, so the API password is set through it.
 	creds := h.command(conf, "--creds", apiUser, pass)
 	if out, err := creds.CombinedOutput(); err != nil {
+		h.Stop()
 		return nil, fmt.Errorf("no se pudo preparar Sunshine: %w\n%s", err, tail(out, 600))
 	}
 
 	logFile, err := os.Create(filepath.Join(opts.Dir, "sunshine.out"))
 	if err != nil {
+		h.Stop()
 		return nil, err
 	}
 	h.cmd = h.command(conf)
 	h.cmd.Stdout, h.cmd.Stderr = logFile, logFile
 	if err := h.cmd.Start(); err != nil {
 		logFile.Close()
+		h.cmd = nil
+		h.Stop()
 		return nil, fmt.Errorf("no se pudo iniciar Sunshine: %w", err)
 	}
 	go func() {
@@ -165,6 +176,9 @@ func StartHost(ctx context.Context, opts HostOptions) (*Host, error) {
 	if opts.Internet && !hasPublic {
 		h.warning = "No se pudo averiguar tu dirección pública: la sala solo funcionará en tu red local o VPN."
 	}
+	if runtime.GOOS == "linux" && audioErr != nil {
+		h.warning = "Los invitados oirán todo el audio de tu equipo, no solo el del juego (" + audioErr.Error() + ")."
+	}
 	if w := h.inputWarning(); w != "" {
 		h.warning = w
 	}
@@ -188,6 +202,24 @@ func (h *Host) Guests() int {
 	return h.guests
 }
 
+// GameEnv is what the game's environment needs while this room is open: on
+// Linux it sends the game's sound to the sink guests hear, so they get only
+// the game and not the rest of the host's desktop.
+func (h *Host) GameEnv() []string {
+	if h.audio == nil {
+		return nil
+	}
+	return h.audio.env()
+}
+
+// GameStarted tells the room which process is the game, so its sound is the
+// one guests hear.
+func (h *Host) GameStarted(pid int) {
+	if h.audio != nil {
+		h.audio.claim(pid)
+	}
+}
+
 // Exited is closed when Sunshine stops, whether asked to or not.
 func (h *Host) Exited() <-chan struct{} { return h.exited }
 
@@ -197,16 +229,20 @@ func (h *Host) Stop() {
 	if h.cancel != nil {
 		h.cancel()
 	}
-	if h.cmd == nil || h.cmd.Process == nil {
-		return
+	if h.cmd != nil && h.cmd.Process != nil {
+		terminate(h.cmd)
+		select {
+		case <-h.exited:
+		case <-time.After(4 * time.Second):
+			h.cmd.Process.Kill()
+			<-h.exited
+		}
 	}
-	terminate(h.cmd)
-	select {
-	case <-h.exited:
-	case <-time.After(4 * time.Second):
-		h.cmd.Process.Kill()
-		<-h.exited
-	}
+	h.stopped.Do(func() {
+		if h.audio != nil {
+			h.audio.stop()
+		}
+	})
 }
 
 func (h *Host) command(args ...string) *exec.Cmd {
@@ -259,6 +295,10 @@ func (h *Host) writeConfig(port uint16) (string, error) {
 		"file_state = " + filepath.ToSlash(state),
 		"credentials_file = " + filepath.ToSlash(state),
 		"log_path = " + filepath.ToSlash(filepath.Join(dir, "sunshine.log")),
+	}
+	if h.audio != nil {
+		// Only the game's sink, not everything the host's speakers play.
+		lines = append(lines, "audio_sink = "+h.audio.sink())
 	}
 	if runtime.GOOS == "linux" {
 		// An Xbox pad is the one every emulator's SDL mapping understands.

@@ -1,8 +1,9 @@
 name: release
 
-# Builds the single-file EmuHub binaries (emulators embedded) for Linux,
-# Windows and macOS. Pushes to main and pull requests upload them as
-# artifacts; pushing a tag like v0.1.0 also publishes a GitHub release.
+# Builds the single-file EmuHub binaries (emulators embedded) for Linux and
+# Windows; macOS is built by hand on a Mac. Pushes to main and pull requests
+# upload them as artifacts; pushing a tag like v0.1.0 also publishes a GitHub
+# release.
 on:
   workflow_dispatch:
   pull_request:
@@ -25,10 +26,6 @@ jobs:
             os: ubuntu-22.04
           - target: windows-amd64
             os: ubuntu-22.04
-          - target: darwin-arm64
-            os: macos-latest
-          - target: darwin-amd64
-            os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

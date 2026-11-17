@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"time"
 
 	"emuhub/internal/bundle"
 	"emuhub/internal/library"
@@ -182,6 +183,75 @@ func (a *App) seatEmulator(g library.Game) *bundle.Emulator {
 	return nil
 }
 
+// padsAtStart reports whether the game's emulator only sees the gamepads
+// connected when the game starts.
+func (a *App) padsAtStart(g library.Game) bool {
+	if a.store.ConsoleConfig(g.Console).Emulator != "bundled" {
+		return false
+	}
+	emu := a.bundledFor(g.Console)
+	return emu != nil && emu.PadsAtStart
+}
+
+// guestPadWait is how long a launch waits for the guests' gamepads.
+const guestPadWait = 30 * time.Second
+
+// waitGuestPads holds back an emulator that only sees the gamepads present
+// at start until every guest's pad exists. Sunshine creates a guest's pad
+// when they first press a button, not when they join, so a game started
+// right away would leave them out until it restarts.
+func (a *App) waitGuestPads(g library.Game) {
+	if !a.padsAtStart(g) {
+		return
+	}
+	missing := func() (int, bool) {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		s := a.remote.state
+		if s.Role != "host" || s.GameID != g.ID || a.remote.host == nil {
+			return 0, false
+		}
+		return a.remote.hostPads + s.Guests - remote.Gamepads(), true
+	}
+	n, ok := missing()
+	if !ok || n <= 0 {
+		return
+	}
+	a.remoteNotice("Esperando los mandos de los invitados: pide a cada uno que pulse un botón de su mando", "info")
+	deadline := time.Now().Add(guestPadWait)
+	for time.Now().Before(deadline) {
+		time.Sleep(300 * time.Millisecond)
+		if n, ok = missing(); !ok || n <= 0 {
+			return
+		}
+	}
+	a.remoteNotice(fmt.Sprintf("Faltan %d mandos de invitados: el emulador no los verá hasta que reinicies el juego", n), "error")
+}
+
+// roomGameEnv is what the game's environment needs while this machine hosts
+// a room, such as sending its sound to the sink guests hear.
+func (a *App) roomGameEnv() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.remote.state.Role != "host" || a.remote.host == nil {
+		return nil
+	}
+	return a.remote.host.GameEnv()
+}
+
+// roomGameStarted tells the open room, if any, which process is the game.
+func (a *App) roomGameStarted(pid int) {
+	a.mu.Lock()
+	host := a.remote.host
+	if a.remote.state.Role != "host" {
+		host = nil
+	}
+	a.mu.Unlock()
+	if host != nil {
+		host.GameStarted(pid)
+	}
+}
+
 func (a *App) roomLimits(g library.Game) RoomLimits {
 	l := RoomLimits{MaxPlayers: 2}
 	if c := library.ConsoleByID(g.Console); c != nil && c.MaxPlayers > 0 {
@@ -275,7 +345,9 @@ func (a *App) HostGame(id string, players int, hostPlays bool) (RemoteState, err
 					}
 				}
 			})
-			if seat > 0 {
+			if a.RunningGame() == id && a.padsAtStart(g) {
+				a.remoteNotice(fmt.Sprintf("Invitado %d se ha unido con el juego en marcha: el emulador no verá su mando hasta que reinicies el juego", n), "error")
+			} else if seat > 0 {
 				a.remoteNotice(fmt.Sprintf("Invitado %d se ha unido: jugador %d", n, seat), "info")
 			} else {
 				a.remoteNotice("Un invitado se ha unido a la sala", "info")

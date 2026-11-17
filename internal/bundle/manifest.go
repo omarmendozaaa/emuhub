@@ -41,6 +41,10 @@ type Platform struct {
 	Provision map[string]string `json:"provision,omitempty"`
 	Firmware  *Firmware         `json:"firmware,omitempty"`
 	FirstRun  *FirstRun         `json:"firstRun,omitempty"`
+	// PadsAtStart marks an emulator that only sees the gamepads connected
+	// when the game starts. A guest's virtual pad appears once they press a
+	// button, so a room waits for them before launching.
+	PadsAtStart bool `json:"padsAtStart,omitempty"`
 }
 
 // Firmware describes emulators that must install a firmware package once
