@@ -10,5 +10,14 @@
     "name": "Hysteria",
     "email": "omendoza.vallejos@gmail.com"
   },
-  "build:tags": "webkit2_41"
+  "build:tags": "webkit2_41",
+  "info": {
+    "protocols": [
+      {
+        "scheme": "emuhub",
+        "description": "Enlaces de sala de EmuHub",
+        "role": "Viewer"
+      }
+    ]
+  }
 }

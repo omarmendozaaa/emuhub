@@ -1,0 +1,3 @@
+# Clave que deben llevar las direcciones de EmuHub (…/?key=<clave>).
+# Genera una con: openssl rand -hex 8
+ACCESS_KEY=

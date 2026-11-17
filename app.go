@@ -16,6 +16,7 @@ import (
 
 	"emuhub/internal/bundle"
 	"emuhub/internal/library"
+	"emuhub/internal/remote"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -31,6 +32,7 @@ type App struct {
 	bundle      *bundle.Manifest // installed bundled emulators; nil until ready
 	bundleState BundleState
 	remote      remoteSession
+	pendingLink string // room link waiting for the interface; see link.go
 }
 
 type ConsoleInfo struct {
@@ -62,7 +64,10 @@ func NewApp(store *library.Store) *App {
 }
 
 func (a *App) startup(ctx context.Context) {
+	a.mu.Lock()
 	a.ctx = ctx
+	a.mu.Unlock()
+	go registerLinks()
 	if err := library.EnsureBIOSDirs(); err != nil {
 		log.Printf("no se pudieron crear las carpetas de BIOS: %v", err)
 	}
@@ -175,6 +180,10 @@ func (a *App) GetSettings() library.Settings {
 }
 
 func (a *App) SaveSettings(s library.Settings) error {
+	s.RemoteServer = strings.TrimSpace(s.RemoteServer)
+	if err := remote.CheckServer(s.RemoteServer); err != nil {
+		return err
+	}
 	return a.store.SetSettings(s)
 }
 

@@ -367,10 +367,10 @@ func (a *App) HostGame(id string, players int, hostPlays bool) (RemoteState, err
 	runtime.EventsEmit(a.ctx, "remote:state", state)
 
 	host, err := remote.StartHost(ctx, remote.HostOptions{
-		Tool:     tool,
-		Dir:      dir,
-		Internet: !a.store.Settings().RemoteLANOnly,
-		Guests:   remote.GuestSeats(players, hostPlays),
+		Tool:   tool,
+		Dir:    dir,
+		Server: a.store.Settings().RemoteServer,
+		Guests: remote.GuestSeats(players, hostPlays),
 		OnGuest: func(n int) {
 			seat := 0
 			a.setRemote(func(s *remoteSession) {

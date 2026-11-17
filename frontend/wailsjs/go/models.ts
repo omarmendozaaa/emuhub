@@ -53,8 +53,8 @@ export namespace library {
 	export class Settings {
 	    minimizeOnLaunch: boolean;
 	    autoCovers: boolean;
-	    remoteLanOnly: boolean;
 	    remoteHd: boolean;
+	    remoteServer: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -64,8 +64,8 @@ export namespace library {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.minimizeOnLaunch = source["minimizeOnLaunch"];
 	        this.autoCovers = source["autoCovers"];
-	        this.remoteLanOnly = source["remoteLanOnly"];
 	        this.remoteHd = source["remoteHd"];
+	        this.remoteServer = source["remoteServer"];
 	    }
 	}
 

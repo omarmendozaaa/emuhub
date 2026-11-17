@@ -22,16 +22,20 @@ export function usePads(): number {
     return pads
 }
 
-/** Room codes are easier to read and to dictate in groups. */
+/** What the host shares: a code, or a link when the room has a server. */
 function CodeBox({code, onCopied}: { code: string, onCopied: () => void }) {
+    const link = code.includes('://')
     const copy = async () => {
         if (await ClipboardSetText(code)) onCopied()
     }
     return (
-        <div className="room-code">
-            <code>{code}</code>
-            <button className="btn small" onClick={copy}>Copiar</button>
-        </div>
+        <>
+            <div className={link ? 'room-code link' : 'room-code'}>
+                <code>{code}</code>
+                <button className="btn small" onClick={copy}>Copiar</button>
+            </div>
+            {link && <p className="muted small room-code-note">Envía este enlace: al abrirlo, EmuHub entra directamente en tu sala.</p>}
+        </>
     )
 }
 
@@ -211,8 +215,8 @@ export function HostRoom({state, game, selected, moving, onSelect, onMoving, onS
                                 : free === 0
                                     ? <p className="room-note note-ok">Todos listos. Puedes empezar.</p>
                                     : filled > 0
-                                        ? <p className="room-note note-warn">{free === 1 ? 'Falta 1 jugador' : `Faltan ${free} jugadores`}. Envía el código o empieza con los que están listos.</p>
-                                        : <p className="room-note note-warn">Envía el código a tus amigos para que entren.</p>}
+                                        ? <p className="room-note note-warn">{free === 1 ? 'Falta 1 jugador' : `Faltan ${free} jugadores`}. Envía la invitación o empieza con los que están listos.</p>
+                                        : <p className="room-note note-warn">Envía la invitación a tus amigos para que entren.</p>}
                         {!state.seatControl && (
                             <p className="muted small">
                                 Con este emulador el número de jugador lo decide el orden en que se conectan los mandos; EmuHub no puede cambiarlo.
@@ -246,7 +250,7 @@ export function HostRoom({state, game, selected, moving, onSelect, onMoving, onS
                             <>
                                 {ready && <Hint kind="cross" label="Empezar" onClick={onStart}/>}
                                 {canMove && <Hint kind="square" label="Mover jugador" onClick={() => onMoving(true)}/>}
-                                <Hint kind="triangle" label="Copiar código" onClick={copy}/>
+                                <Hint kind="triangle" label="Copiar invitación" onClick={copy}/>
                                 <Hint kind="circle" label="Cerrar" onClick={onClose}/>
                             </>
                         )}
@@ -279,10 +283,10 @@ function PadStatus({pads}: { pads: number }) {
 }
 
 /** Where a guest types or pastes the code a friend sent. */
-export function JoinRoom({support, onJoin, onClose}: {
-    support: main.RemoteSupport | null, onJoin: (code: string) => Promise<boolean>, onClose: () => void,
+export function JoinRoom({support, initial, onJoin, onClose}: {
+    support: main.RemoteSupport | null, initial?: string, onJoin: (code: string) => Promise<boolean>, onClose: () => void,
 }) {
-    const [code, setCode] = useState('')
+    const [code, setCode] = useState(initial ?? '')
     const [busy, setBusy] = useState(false)
     const input = useRef<HTMLInputElement>(null)
     const pads = usePads()
@@ -309,17 +313,20 @@ export function JoinRoom({support, onJoin, onClose}: {
                 ) : (
                     <>
                         <p className="muted">
-                            Pega el código que te han enviado. No necesitas tener el juego: lo ves y lo juegas desde el equipo del anfitrión.
+                            {initial
+                                ? 'Te han invitado a una sala. No necesitas tener el juego: lo ves y lo juegas desde el equipo del anfitrión.'
+                                : 'Pega el código o el enlace que te han enviado. No necesitas tener el juego: lo ves y lo juegas desde el equipo del anfitrión.'}
                         </p>
                         <form className="room-form" onSubmit={e => { e.preventDefault(); join() }}>
                             <input
                                 ref={input}
                                 value={code}
                                 onChange={e => setCode(e.target.value)}
-                                placeholder="EH-XXXX-XXXX-XXXX-XXXX"
-                                aria-label="Código de la sala"
+                                placeholder="Código o enlace de la sala"
+                                aria-label="Código o enlace de la sala"
                                 spellCheck={false}
-                                autoCapitalize="characters"
+                                autoCapitalize="off"
+                                autoCorrect="off"
                             />
                             <button type="button" className="btn" onClick={paste}>Pegar</button>
                         </form>

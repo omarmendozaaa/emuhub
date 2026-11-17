@@ -109,11 +109,12 @@ function General(p: Props) {
                 {p.support && !p.support.host && <span className="error-text"> No puedes crear salas: {p.support.hostReason}.</span>}
                 {p.support && !p.support.guest && <span className="error-text"> No puedes unirte a salas: {p.support.guestReason}.</span>}
             </p>
-            <Toggle
-                label="Salas solo en mi red local"
-                hint="Desactivado, EmuHub abre los puertos de la sala en tu router (UPnP) y consulta tu dirección pública para que te encuentren por internet."
-                value={p.settings.remoteLanOnly}
-                onChange={v => save({remoteLanOnly: v})}
+            <TextSetting
+                label="Servidor de salas"
+                hint="Para que entren amigos de otras redes a tus salas. EmuHub conecta los equipos directamente con un túnel, sin abrir puertos en el router ni en el firewall. Pega la dirección de tu servidor con su ?key=; va dentro del código de sala, así que tus invitados no tienen que configurar nada. Sin servidor, tus salas funcionan en tu red local y por VPN."
+                placeholder="https://emuhub-signal.tu-cuenta.workers.dev/?key=…"
+                value={p.settings.remoteServer ?? ''}
+                onSave={v => save({remoteServer: v.trim()})}
             />
             <Toggle
                 label="Ver las salas de mis amigos en 1080p"
@@ -157,6 +158,29 @@ function General(p: Props) {
                 <tr><td>Atrás</td><td>Esc / ○ (B)</td></tr>
                 </tbody>
             </table>
+        </div>
+    )
+}
+
+function TextSetting({label, hint, placeholder, value, onSave}: {
+    label: string, hint?: string, placeholder?: string, value: string, onSave: (v: string) => void
+}) {
+    const [text, setText] = useState(value)
+    useEffect(() => setText(value), [value])
+    return (
+        <div className="text-setting">
+            <div>{label}</div>
+            {hint && <div className="muted small">{hint}</div>}
+            <input
+                className="text"
+                value={text}
+                placeholder={placeholder}
+                spellCheck={false}
+                autoComplete="off"
+                onChange={e => setText(e.target.value)}
+                onBlur={() => text.trim() !== value && onSave(text)}
+                onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            />
         </div>
     )
 }

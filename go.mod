@@ -5,6 +5,10 @@ go 1.26.0
 require (
 	github.com/CalebQ42/squashfs v1.4.1
 	github.com/bodgit/sevenzip v1.6.5
+	github.com/gorilla/websocket v1.5.3
+	github.com/pion/ice/v4 v4.4.9
+	github.com/pion/stun/v4 v4.0.1
+	github.com/quic-go/quic-go v0.65.0
 	github.com/ulikunitz/xz v0.5.17
 	github.com/wailsapp/wails/v2 v2.17.0
 	golang.org/x/sys v0.49.0
@@ -20,7 +24,6 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/klauspost/compress v1.19.0 // indirect
@@ -34,6 +37,12 @@ require (
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mikelolasagasti/xz v1.0.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.27 // indirect
+	github.com/pion/dtls/v3 v3.1.9 // indirect
+	github.com/pion/logging v0.2.4 // indirect
+	github.com/pion/mdns/v2 v2.2.2 // indirect
+	github.com/pion/randutil v0.1.0 // indirect
+	github.com/pion/transport/v5 v5.0.1 // indirect
+	github.com/pion/turn/v5 v5.1.2 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rasky/go-lzo v0.0.0-20200203143853-96a758eda86e // indirect
@@ -45,10 +54,12 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
+	github.com/wlynxg/anet v0.0.5 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
-	golang.org/x/crypto v0.53.0 // indirect
+	golang.org/x/crypto v0.54.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 )
 
 // replace github.com/wailsapp/wails/v2 v2.17.0 => /home/hysteria/go/pkg/mod

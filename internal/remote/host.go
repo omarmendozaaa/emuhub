@@ -12,7 +12,6 @@ import (
 	"io"
 	"math/big"
 	"net/http"
-	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,10 +38,10 @@ const (
 type HostOptions struct {
 	Tool Tool   // Sunshine
 	Dir  string // where the session keeps Sunshine's config and logs
-	// Internet opens the router ports with UPnP and adds the public address
-	// to the room code. Without it the room only works on the local network
-	// or a VPN.
-	Internet bool
+	// Server is the signaling server (see signal/) through which guests on
+	// other networks reach the host with a P2P tunnel. Empty keeps the room
+	// to the local network and VPNs.
+	Server string
 	// Guests is how many guests the room takes, up to MaxGuests.
 	Guests int
 	// OnGuest is called each time a guest pairs, with the number so far.
@@ -65,6 +64,7 @@ type Host struct {
 	code    string
 	warning string
 	audio   *gameAudio
+	tunnel  *tunnelHost
 	stopped sync.Once
 
 	mu     sync.Mutex
@@ -159,22 +159,31 @@ func StartHost(ctx context.Context, opts HostOptions) (*Host, error) {
 		return nil, err
 	}
 
-	var public netip.Addr
-	hasPublic := false
-	if opts.Internet {
-		public, hasPublic = publicAddr(ctx)
-	}
-	h.invite = Invite{Addrs: inviteAddrs(localAddrs(), public, hasPublic), Port: port, PIN: pin}
+	h.invite = Invite{Addrs: inviteAddrs(localAddrs()), Port: port, PIN: pin}
 	if len(h.invite.Addrs) == 0 {
 		h.Stop()
 		return nil, errors.New("este equipo no está conectado a ninguna red")
 	}
-	if h.code, err = h.invite.Encode(); err != nil {
+	var tunnelErr error
+	if strings.TrimSpace(opts.Server) != "" {
+		secret := make([]byte, secretLen)
+		if _, err := rand.Read(secret); err != nil {
+			h.Stop()
+			return nil, err
+		}
+		if h.tunnel, tunnelErr = startTunnelHost(ctx, opts.Server, secret, port); tunnelErr == nil {
+			h.invite.Secret, h.invite.Server = secret, opts.Server
+		}
+	}
+	if h.code, err = h.invite.Share(); err != nil {
 		h.Stop()
 		return nil, err
 	}
-	if opts.Internet && !hasPublic {
-		h.warning = "No se pudo averiguar tu dirección pública: la sala solo funcionará en tu red local o VPN."
+	switch {
+	case tunnelErr != nil:
+		h.warning = "No se pudo conectar con el servidor de salas: solo entrarán amigos de tu red local o VPN (" + tunnelErr.Error() + ")."
+	case h.tunnel == nil:
+		h.warning = "Solo entrarán amigos de tu red local o VPN. Para jugar por internet, configura un servidor de salas en Ajustes → Jugar con amigos."
 	}
 	if runtime.GOOS == "linux" && audioErr != nil {
 		h.warning = "Los invitados oirán todo el audio de tu equipo, no solo el del juego (" + audioErr.Error() + ")."
@@ -229,6 +238,9 @@ func (h *Host) Stop() {
 	if h.cancel != nil {
 		h.cancel()
 	}
+	if h.tunnel != nil {
+		h.tunnel.Close()
+	}
 	if h.cmd != nil && h.cmd.Process != nil {
 		terminate(h.cmd)
 		select {
@@ -276,14 +288,12 @@ func (h *Host) writeConfig(port uint16) (string, error) {
 		return "", err
 	}
 
-	upnp := "disabled"
-	if h.opts.Internet {
-		upnp = "enabled"
-	}
 	lines := []string{
 		"sunshine_name = " + AppName,
 		fmt.Sprintf("port = %d", port),
-		"upnp = " + upnp,
+		// Guests from other networks come through the tunnel; no ports are
+		// opened on the router.
+		"upnp = disabled",
 		// The web UI and its API answer to this machine only.
 		"origin_web_ui_allowed = pc",
 		// Guests bring a gamepad; they must not type or click on the host.

@@ -55,4 +55,6 @@ export function StopGame():Promise<void>;
 
 export function StopHosting():Promise<void>;
 
+export function TakeRoomLink():Promise<string>;
+
 export function ToggleFavorite(arg1:string):Promise<library.Game>;

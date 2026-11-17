@@ -21,6 +21,9 @@ func TestInviteRoundTrip(t *testing.T) {
 	for _, in := range []Invite{
 		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0007"},
 		{Addrs: addrs("192.168.1.20", "100.64.0.3", "203.0.113.9"), Port: 48089, PIN: "9999"},
+		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://emuhub-signal.omar.workers.dev/?key=0123456789abcdef"},
+		{Addrs: addrs("192.168.1.20"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://salas.workers.dev"},
+		{Addrs: addrs("10.0.0.2"), Port: 47989, PIN: "0420", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "http://127.0.0.1:8787/emuhub?key=Mi+Clave%21"},
 	} {
 		code, err := in.Encode()
 		if err != nil {
@@ -64,6 +67,9 @@ func TestInviteRejectsDamage(t *testing.T) {
 		{Port: 1, PIN: "1234"},
 		{Addrs: addrs("10.0.0.2"), Port: 1, PIN: "12a4"},
 		{Addrs: addrs("::1"), Port: 1, PIN: "1234"},
+		{Addrs: addrs("10.0.0.2"), Port: 1, PIN: "1234", Secret: []byte{1, 2, 3}, Server: "https://a.workers.dev"},
+		{Addrs: addrs("10.0.0.2"), Port: 1, PIN: "1234", Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}},
+		{Addrs: addrs("10.0.0.2"), Port: 1, PIN: "1234", Server: "https://a.workers.dev"},
 	} {
 		if _, err := in.Encode(); err == nil {
 			t.Errorf("%+v was encoded", in)
@@ -73,16 +79,10 @@ func TestInviteRejectsDamage(t *testing.T) {
 
 func TestInviteAddrs(t *testing.T) {
 	local := addrs("192.168.1.2", "10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5", "10.0.0.6")
-	got := inviteAddrs(local, netip.MustParseAddr("203.0.113.9"), true)
-	if len(got) != maxAddrs || got[0] != local[0] || got[len(got)-1] != netip.MustParseAddr("203.0.113.9") {
+	if got := inviteAddrs(local); !reflect.DeepEqual(got, local[:maxAddrs]) {
 		t.Errorf("got %v", got)
 	}
-	// A machine with a public address on its own interface lists it once.
-	got = inviteAddrs(addrs("203.0.113.9"), netip.MustParseAddr("203.0.113.9"), true)
-	if len(got) != 1 {
-		t.Errorf("got %v", got)
-	}
-	if got = inviteAddrs(local[:2], netip.Addr{}, false); !reflect.DeepEqual(got, local[:2]) {
+	if got := inviteAddrs(local[:2]); !reflect.DeepEqual(got, local[:2]) {
 		t.Errorf("got %v", got)
 	}
 }
@@ -218,5 +218,55 @@ func TestMarkReady(t *testing.T) {
 	}
 	if AllReady([]Seat{{}, {}}) {
 		t.Fatal("nobody to play")
+	}
+}
+
+func TestInviteLink(t *testing.T) {
+	in := Invite{
+		Addrs: addrs("192.168.18.12", "100.101.102.103"), Port: 47989, PIN: "0420",
+		Secret: []byte{1, 2, 3, 4, 5, 6, 7, 8}, Server: "https://emuhub-signal.omar.workers.dev/?key=0123456789abcdef",
+	}
+	link, err := in.Share()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(link, "https://emuhub-signal.omar.workers.dev/j/") || strings.Contains(link, "key=") {
+		t.Fatalf("link %q", link)
+	}
+	token := strings.TrimPrefix(link, "https://emuhub-signal.omar.workers.dev/j/")
+	code, _ := in.Encode()
+	for _, s := range []string{
+		link,
+		"  " + link + "\n",
+		link + "/",
+		link + "?utm_source=chat#x",
+		"emuhub://join/" + token,
+		"EMUHUB://join/" + token + "/",
+		"emuhub://join/" + code,
+		code,
+	} {
+		got, err := DecodeInvite(s)
+		if err != nil || !reflect.DeepEqual(got, in) {
+			t.Errorf("%q: got %+v, %v", s, got, err)
+		}
+	}
+	// A server under a path keeps it.
+	in.Server = "http://127.0.0.1:8787/emuhub?key=k"
+	if link, _ = in.Link(); link[:len("http://127.0.0.1:8787/emuhub/j/")] != "http://127.0.0.1:8787/emuhub/j/" {
+		t.Errorf("link %q", link)
+	}
+	if got, err := DecodeInvite(link); err != nil || got.Server != in.Server {
+		t.Errorf("%q: %+v %v", link, got, err)
+	}
+	// Damaged links are refused.
+	for _, bad := range []string{link[:len(link)-3], "https://example.com/", "emuhub://join/", "https://x.dev/j/!!!!"} {
+		if _, err := DecodeInvite(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	// Rooms without a server share a code.
+	lan := Invite{Addrs: addrs("192.168.18.12"), Port: 47989, PIN: "0420"}
+	if s, _ := lan.Share(); !strings.HasPrefix(s, "EH-") {
+		t.Errorf("share %q", s)
 	}
 }

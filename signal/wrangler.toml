@@ -1,0 +1,15 @@
+# Servidor de señalización de EmuHub: el punto de encuentro donde anfitrión e
+# invitado intercambian sus direcciones para abrir el túnel. No pasa vídeo ni
+# mandos por aquí, solo unos pocos mensajes por sala.
+name = "emuhub-signal"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
+
+# El plan gratuito de Workers solo admite Durable Objects con SQLite.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]

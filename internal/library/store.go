@@ -48,11 +48,13 @@ type ConsoleConfig struct {
 type Settings struct {
 	MinimizeOnLaunch bool `json:"minimizeOnLaunch"`
 	AutoCovers       bool `json:"autoCovers"`
-	// RemoteLANOnly keeps rooms off the internet: no UPnP and no public
-	// address in the room code.
-	RemoteLANOnly bool `json:"remoteLanOnly"`
 	// RemoteHD receives rooms at 1080p instead of 720p.
 	RemoteHD bool `json:"remoteHd"`
+	// RemoteServer is the signaling server this user's rooms offer for P2P
+	// tunnels with players on other networks, as a URL that may carry
+	// ?key=…. It travels in the room code. Empty keeps rooms to the local
+	// network and VPNs.
+	RemoteServer string `json:"remoteServer"`
 }
 
 type fileData struct {

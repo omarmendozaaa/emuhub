@@ -1,0 +1,19 @@
+{
+  "name": "emuhub-signal",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "ACCESS_KEY": {
+        "description": "Clave para que solo tus amigos usen tu servidor de salas. Genera una con `openssl rand -hex 8` y guárdala: la necesitarás en EmuHub como …/?key=<clave>."
+      }
+    }
+  }
+}

@@ -106,6 +106,10 @@ export function StopHosting() {
   return window['go']['main']['App']['StopHosting']();
 }
 
+export function TakeRoomLink() {
+  return window['go']['main']['App']['TakeRoomLink']();
+}
+
 export function ToggleFavorite(arg1) {
   return window['go']['main']['App']['ToggleFavorite'](arg1);
 }
