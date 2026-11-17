@@ -70,10 +70,11 @@ func startGameAudio() (*gameAudio, error) {
 //     streaming, which would move every program that follows the default,
 //     voice chat included, into the sink guests hear. The speakers are put
 //     back at once; Sunshine keeps capturing the sink by name.
-//   - The game's sound is moved into the room's sink as soon as it appears.
-//     Emulators ask for the default output by name and the sound server
-//     restores the output it remembers for them, so PULSE_SINK alone is not
-//     enough.
+//   - Every time a stream appears or changes, the game's streams are put in
+//     the room's sink and everything else is taken out of it. Emulators ask
+//     for the default output by name, the sound server restores the output
+//     it remembers for them, and SDL reopens its stream whenever the default
+//     output changes, so moving the game's stream once is not enough.
 func (g *gameAudio) watchServer() {
 	ctx, cancel := context.WithCancel(context.Background())
 	g.watch = cancel
@@ -88,14 +89,15 @@ func (g *gameAudio) watchServer() {
 			out, err := cmd.StdoutPipe()
 			if err == nil && cmd.Start() == nil {
 				restore()
-				g.moveGameStreams()
+				g.sortStreams()
 				lines := bufio.NewScanner(out)
 				for lines.Scan() {
 					switch line := lines.Text(); {
 					case strings.Contains(line, "on server"):
 						restore()
-					case strings.Contains(line, "'new' on sink-input"):
-						g.moveGameStreams()
+						g.sortStreams()
+					case strings.Contains(line, "'new' on sink-input"), strings.Contains(line, "'change' on sink-input"):
+						g.sortStreams()
 					}
 				}
 				cmd.Wait()
@@ -113,29 +115,40 @@ func (g *gameAudio) claim(pid int) {
 	g.mu.Lock()
 	g.games = append(g.games, pid)
 	g.mu.Unlock()
-	go g.moveGameStreams()
+	go g.sortStreams()
 }
 
-// moveGameStreams moves the claimed processes' playback into the room's sink.
-func (g *gameAudio) moveGameStreams() {
+// sortStreams puts the claimed processes' playback in the room's sink and
+// moves anything else that ended up there back to the speakers, so guests
+// hear only the game.
+func (g *gameAudio) sortStreams() {
 	g.mu.Lock()
 	games := append([]int{}, g.games...)
 	g.mu.Unlock()
-	if len(games) == 0 {
+	room := sinkIndex(pactlOutput("list", "short", "sinks"), gameSinkName)
+	if room == "" {
 		return
 	}
 	for _, s := range parseSinkInputs(pactlOutput("list", "sink-inputs")) {
+		game := false
 		for _, root := range games {
 			if descends(s.pid, root) {
-				pactl("move-sink-input", s.index, gameSinkName)
+				game = true
 				break
 			}
+		}
+		switch {
+		case game && s.sink != room:
+			pactl("move-sink-input", s.index, gameSinkName)
+		case !game && s.sink == room:
+			pactl("move-sink-input", s.index, g.speakers)
 		}
 	}
 }
 
 type sinkInput struct {
 	index string
+	sink  string
 	pid   int
 }
 
@@ -148,11 +161,27 @@ func parseSinkInputs(out string) []sinkInput {
 			list = append(list, sinkInput{index: n})
 			continue
 		}
-		if v, ok := strings.CutPrefix(t, "application.process.id = "); ok && len(list) > 0 {
+		if len(list) == 0 {
+			continue
+		}
+		if v, ok := strings.CutPrefix(t, "Sink: "); ok {
+			list[len(list)-1].sink = v
+		}
+		if v, ok := strings.CutPrefix(t, "application.process.id = "); ok {
 			list[len(list)-1].pid, _ = strconv.Atoi(strings.Trim(v, `"`))
 		}
 	}
 	return list
+}
+
+// sinkIndex finds a sink's index in `pactl list short sinks`.
+func sinkIndex(out, name string) string {
+	for _, line := range strings.Split(out, "\n") {
+		if f := strings.Fields(line); len(f) > 1 && f[1] == name {
+			return f[0]
+		}
+	}
+	return ""
 }
 
 // descends reports whether pid is root or one of its descendants.
