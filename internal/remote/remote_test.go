@@ -285,3 +285,20 @@ func TestInviteLeavesKeyOut(t *testing.T) {
 		t.Errorf("%q: %+v %v", link, got, err)
 	}
 }
+
+func TestWithKey(t *testing.T) {
+	for _, c := range []struct{ server, key, want string }{
+		{"https://emuhub-signal.a.workers.dev", "s3cr3t", "https://emuhub-signal.a.workers.dev?key=s3cr3t"},
+		{"https://emuhub-signal.a.workers.dev/", " k ", "https://emuhub-signal.a.workers.dev/?key=k"},
+		{"https://emuhub-signal.a.workers.dev", "", "https://emuhub-signal.a.workers.dev"},
+		{"", "k", ""},
+	} {
+		if got := WithKey(c.server, c.key); got != c.want {
+			t.Errorf("WithKey(%q, %q) = %q, want %q", c.server, c.key, got, c.want)
+		}
+	}
+	u, _ := roomURL(WithKey("https://x.workers.dev", "k&1"), []byte("secret"), "host")
+	if !strings.Contains(u, "key=k%261") {
+		t.Errorf("host room URL lost the key: %s", u)
+	}
+}

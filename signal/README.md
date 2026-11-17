@@ -41,12 +41,11 @@ curl https://emuhub-signal.<tu-subdominio>.workers.dev/
 
 ## Usarlo en EmuHub
 
-Quien hostea pone la dirección, con la clave al final, en *Ajustes → Jugar con amigos → Servidor de
-salas*:
+Quien hostea pone la dirección y la clave en *Ajustes → Jugar con amigos → Servidor de salas*, cada
+una en su campo, y pulsa **Guardar**:
 
-```
-https://emuhub-signal.<tu-subdominio>.workers.dev/?key=<tu-clave>
-```
+- **Dirección**: `https://emuhub-signal.<tu-subdominio>.workers.dev`
+- **Clave de acceso**: la que pusiste con `wrangler secret put ACCESS_KEY` (vacía si no tiene)
 
 **La clave es solo para quien hostea**: con ella EmuHub crea las salas en tu servidor, y nunca
 sale de tu equipo. Las invitaciones llevan la dirección del servidor sin la clave, así que tus

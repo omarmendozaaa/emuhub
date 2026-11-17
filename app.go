@@ -180,7 +180,7 @@ func (a *App) GetSettings() library.Settings {
 }
 
 func (a *App) SaveSettings(s library.Settings) error {
-	s.RemoteServer = strings.TrimSpace(s.RemoteServer)
+	s.RemoteServer, s.RemoteKey = library.SplitServerKey(s.RemoteServer, s.RemoteKey)
 	s.RemoteName = remote.CleanName(s.RemoteName)
 	if err := remote.CheckServer(s.RemoteServer); err != nil {
 		return err

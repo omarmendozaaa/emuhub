@@ -380,7 +380,7 @@ func (a *App) HostGame(id string, players int, hostPlays bool) (RemoteState, err
 	host, err := remote.StartHost(ctx, remote.HostOptions{
 		Tool:   tool,
 		Dir:    dir,
-		Server: a.store.Settings().RemoteServer,
+		Server: remote.WithKey(a.store.Settings().RemoteServer, a.store.Settings().RemoteKey),
 		Guests: remote.GuestSeats(players, hostPlays),
 		OnGuest: func(n int, name string) {
 			who := name

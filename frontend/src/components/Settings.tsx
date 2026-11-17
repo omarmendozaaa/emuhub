@@ -119,13 +119,7 @@ function General(p: Props) {
                 maxLength={24}
                 onSave={v => save({remoteName: v.trim()})}
             />
-            <TextSetting
-                label="Servidor de salas"
-                hint="Para que entren amigos de otras redes a tus salas. EmuHub conecta los equipos directamente con un túnel, sin abrir puertos en el router ni en el firewall. Pega la dirección de tu servidor con su ?key=. Tus invitaciones llevan la dirección pero no la clave, así que tus invitados no configuran nada. Sin servidor, tus salas funcionan en tu red local y por VPN."
-                placeholder="https://emuhub-signal.tu-cuenta.workers.dev/?key=…"
-                value={p.settings.remoteServer ?? ''}
-                onSave={v => save({remoteServer: v.trim()})}
-            />
+            <ServerSetting settings={p.settings} onChanged={p.onChanged}/>
             <Toggle
                 label="Ver las salas de mis amigos en 1080p"
                 hint="Por defecto 720p, que va más fluido. Actívalo si los dos tenéis buena conexión."
@@ -192,6 +186,84 @@ function TextSetting({label, hint, placeholder, value, maxLength, onSave}: {
                 onBlur={() => text.trim() !== value && onSave(text)}
                 onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
             />
+        </div>
+    )
+}
+
+function ServerSetting({settings, onChanged}: { settings: library.Settings, onChanged: () => void }) {
+    const savedServer = settings.remoteServer ?? ''
+    const savedKey = settings.remoteKey ?? ''
+    const [server, setServer] = useState(savedServer)
+    const [key, setKey] = useState(savedKey)
+    const [showKey, setShowKey] = useState(false)
+    const [status, setStatus] = useState<{kind: 'saving' | 'saved' | 'error', text?: string} | null>(null)
+    useEffect(() => setServer(savedServer), [savedServer])
+    useEffect(() => setKey(savedKey), [savedKey])
+
+    const dirty = server.trim() !== savedServer || key.trim() !== savedKey
+    const edit = (f: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        f(e.target.value)
+        if (status?.kind !== 'saving') setStatus(null)
+    }
+    const save = async () => {
+        setStatus({kind: 'saving'})
+        try {
+            await SaveSettings({...settings, remoteServer: server.trim(), remoteKey: key.trim()} as library.Settings)
+            setStatus({kind: 'saved'})
+            onChanged()
+        } catch (e) {
+            setStatus({kind: 'error', text: errorText(e)})
+        }
+    }
+    const onEnter = (e: React.KeyboardEvent) => e.key === 'Enter' && dirty && save()
+
+    return (
+        <div className="text-setting">
+            <div>Servidor de salas</div>
+            <div className="muted small">
+                Para que entren amigos de otras redes a tus salas. EmuHub conecta los equipos directamente con un túnel, sin abrir
+                puertos en el router ni en el firewall. Tus invitaciones llevan la dirección pero no la clave, así que tus invitados
+                no configuran nada. Sin servidor, tus salas funcionan en tu red local y por VPN.
+            </div>
+            <label className="field">
+                <span className="small">Dirección</span>
+                <input
+                    className="text"
+                    value={server}
+                    placeholder="https://emuhub-signal.tu-cuenta.workers.dev"
+                    spellCheck={false}
+                    autoComplete="off"
+                    onChange={edit(setServer)}
+                    onKeyDown={onEnter}
+                />
+            </label>
+            <label className="field">
+                <span className="small">Clave de acceso <span className="muted">(si tu servidor tiene una)</span></span>
+                <div className="input-row">
+                    <input
+                        className="text"
+                        type={showKey ? 'text' : 'password'}
+                        value={key}
+                        placeholder="Vacía si el servidor no tiene clave"
+                        spellCheck={false}
+                        autoComplete="off"
+                        onChange={edit(setKey)}
+                        onKeyDown={onEnter}
+                    />
+                    <button className="btn" type="button" onClick={() => setShowKey(v => !v)}>{showKey ? 'Ocultar' : 'Mostrar'}</button>
+                </div>
+            </label>
+            <div className="row-actions save-row">
+                <button className="btn primary" disabled={!dirty || status?.kind === 'saving'} onClick={save}>
+                    {status?.kind === 'saving' ? 'Guardando…' : 'Guardar'}
+                </button>
+                {dirty && status?.kind !== 'error' && (
+                    <button className="btn ghost" onClick={() => { setServer(savedServer); setKey(savedKey); setStatus(null) }}>Descartar</button>
+                )}
+                {status?.kind === 'saved' && !dirty && <span className="ok-text small">✓ Guardado</span>}
+                {status?.kind === 'error' && <span className="error-text small">{status.text}</span>}
+                {!status && dirty && <span className="muted small">Cambios sin guardar</span>}
+            </div>
         </div>
     )
 }

@@ -792,6 +792,16 @@ kbd {
 
 .text-setting input { margin-top: 6px; }
 
+.text-setting .field { display: flex; flex-direction: column; margin-top: 8px; }
+
+.text-setting .field .input-row { margin-top: 0; align-items: flex-end; }
+
+.text-setting .field .input-row input { flex: 1; }
+
+.text-setting .save-row { align-items: center; margin-top: 12px; }
+
+.ok-text { color: #5fd38d; }
+
 .switch {
     position: relative;
     flex-shrink: 0;
