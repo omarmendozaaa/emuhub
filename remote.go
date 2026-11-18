@@ -58,11 +58,6 @@ type RemoteSupport struct {
 	HostReason  string `json:"hostReason"`
 	Guest       bool   `json:"guest"`
 	GuestReason string `json:"guestReason"`
-	// Keyboard says whether this computer can join playing with the
-	// keyboard, and KeyboardReason why not.
-	Keyboard       bool                `json:"keyboard"`
-	KeyboardReason string              `json:"keyboardReason"`
-	KeyboardLayout []remote.KeyBinding `json:"keyboardLayout"`
 }
 
 // remoteSession is the state behind RemoteState; guarded by App.mu.
@@ -125,12 +120,6 @@ func (a *App) GetRemoteSupport() RemoteSupport {
 	} else {
 		s.Guest = true
 	}
-	if err := remote.KeyboardPadSupported(); err != nil {
-		s.KeyboardReason = err.Error()
-	} else {
-		s.Keyboard = true
-	}
-	s.KeyboardLayout = remote.KeyboardLayout()
 	return s
 }
 
@@ -514,7 +503,7 @@ func (a *App) StopHosting() {
 // JoinGame connects to a friend's room with the code they shared. It returns
 // once the code is accepted as well formed; progress and the end of the
 // session arrive as events.
-func (a *App) JoinGame(code string, keyboard bool) error {
+func (a *App) JoinGame(code string) error {
 	if _, err := remote.DecodeInvite(code); err != nil {
 		return err
 	}
@@ -560,11 +549,10 @@ func (a *App) JoinGame(code string, keyboard bool) error {
 			}
 		}
 		guest, err := remote.Join(ctx, code, remote.GuestOptions{
-			Tool:     tool,
-			Dir:      dir,
-			HD:       a.store.Settings().RemoteHD,
-			Name:     a.playerName(),
-			Keyboard: keyboard,
+			Tool: tool,
+			Dir:  dir,
+			HD:   a.store.Settings().RemoteHD,
+			Name: a.playerName(),
 			Status: func(msg string) {
 				a.setRemote(func(s *remoteSession) { s.state.Message = msg })
 			},
