@@ -121,10 +121,7 @@ y envía su mando. No se copia ningún archivo del juego al invitado.
    un enlace si tienes servidor de salas, o un código como `EH-06XQ-A4G4-0B0A-G4GC` para jugar en
    tu red o por VPN. Envíalo por cualquier chat.
 2. **Invitado**: pulsa el enlace y EmuHub se abre directamente en la sala; o pulsa **Unirse a una
-   sala** (`J`) y pega el código o el enlace. No hay nada que emparejar ni configurar a mano. Sin
-   mando, puede activar **Jugar con teclado**: su EmuHub convierte el teclado en un mando virtual
-   que llega al anfitrión como cualquier otro (por ahora solo en Linux, con el usuario en el grupo
-   `input`). El teclado del anfitrión sigue cerrado a los invitados.
+   sala** (`J`) y pega el código o el enlace. No hay nada que emparejar ni configurar a mano.
 3. Cada invitado ocupa un asiento (J1, J2…) según llega, con el nombre que eligió en *Ajustes →
    Jugar con amigos* (o el de su usuario del equipo). El anfitrión pulsa **Empezar partida**
    cuando quiera. La sala se cierra sola al salir del juego.

@@ -251,9 +251,9 @@ export default function App() {
     const seatCount = remote?.seats?.length ?? 0
     const canMoveSeat = !!remote?.seatControl && !!remote?.seats?.[seat]?.kind
 
-    const join = async (code: string, keyboard: boolean) => {
+    const join = async (code: string) => {
         try {
-            await JoinGame(code, keyboard)
+            await JoinGame(code)
             setPanel('none')
             return true
         } catch (e) {

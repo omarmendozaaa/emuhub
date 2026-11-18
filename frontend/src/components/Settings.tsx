@@ -110,7 +110,7 @@ function General(p: Props) {
             <h3>Jugar con amigos</h3>
             <p className="muted small">
                 Abre una sala desde las opciones de un juego (<b>Invitar a un amigo</b>) y comparte el código. Tu amigo entra con
-                <b> Unirse a una sala</b> y juega con su mando, o con su teclado, sin necesitar el juego: lo ve desde tu equipo.
+                <b> Unirse a una sala</b> y juega con su mando, sin necesitar el juego: lo ve desde tu equipo.
                 {p.support && !p.support.host && <span className="error-text"> No puedes crear salas: {p.support.hostReason}.</span>}
                 {p.support && !p.support.guest && <span className="error-text"> No puedes unirte a salas: {p.support.guestReason}.</span>}
             </p>

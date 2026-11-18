@@ -22,8 +22,6 @@ type GuestOptions struct {
 	// Name is how the host sees this guest in the room. Empty leaves it to
 	// the host, who shows "Invitado N".
 	Name string
-	// Keyboard plays with the keyboard, turned into a gamepad; see kbpad.go.
-	Keyboard bool
 	// Status reports progress in words for the UI.
 	Status func(string)
 }
@@ -33,7 +31,6 @@ type Guest struct {
 	cmd    *exec.Cmd
 	output *tailBuffer
 	tunnel *tunnelGuest // nil when Moonlight reaches the host directly
-	pad    KeyboardPad  // nil unless playing with the keyboard
 }
 
 // Join reaches the host named by the room code, pairs with its PIN and starts
@@ -48,21 +45,6 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 	if status == nil {
 		status = func(string) {}
 	}
-
-	// The keyboard's pad must exist before Moonlight starts, which is when
-	// it looks for gamepads.
-	var pad KeyboardPad
-	if opts.Keyboard {
-		if pad, err = StartKeyboardPad(); err != nil {
-			return nil, err
-		}
-	}
-	padKept := false
-	defer func() {
-		if pad != nil && !padKept {
-			pad.Close()
-		}
-	}()
 
 	status("Buscando la sala…")
 	addr, hostID, err := reachable(ctx, in)
@@ -126,13 +108,13 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 	} else {
 		args = append(args, "--720", "--bitrate", "10000")
 	}
-	g := &Guest{output: &tailBuffer{max: 4096}, tunnel: tunnel, pad: pad}
+	g := &Guest{output: &tailBuffer{max: 4096}, tunnel: tunnel}
 	g.cmd = opts.command(context.Background(), args...)
 	g.cmd.Stdout, g.cmd.Stderr = g.output, g.output
 	if err := g.cmd.Start(); err != nil {
 		return nil, fmt.Errorf("no se pudo iniciar Moonlight: %w", err)
 	}
-	ok, padKept = true, true
+	ok = true
 	return g, nil
 }
 
@@ -162,9 +144,6 @@ func (g *Guest) Stop() {
 func (g *Guest) release() {
 	if g.tunnel != nil {
 		g.tunnel.Close()
-	}
-	if g.pad != nil {
-		g.pad.Close()
 	}
 }
 

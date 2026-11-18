@@ -33,7 +33,7 @@ export function HostGame(arg1:string,arg2:number,arg3:boolean):Promise<main.Remo
 
 export function InstallUpdate():Promise<void>;
 
-export function JoinGame(arg1:string,arg2:boolean):Promise<void>;
+export function JoinGame(arg1:string):Promise<void>;
 
 export function LaunchGame(arg1:string):Promise<void>;
 
