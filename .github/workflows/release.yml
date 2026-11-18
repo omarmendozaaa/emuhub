@@ -1,9 +1,9 @@
 name: release
 
-# Builds the single-file EmuHub binaries (emulators embedded) for Linux and
-# Windows; macOS is built by hand on a Mac. Pushes to main and pull requests
-# upload them as artifacts; pushing a tag like v0.1.0 also publishes a GitHub
-# release.
+# Builds EmuHub for Linux and Windows; macOS is built by hand on a Mac (see
+# scripts/publish-release.sh). Pushes to main and pull requests upload the
+# builds as artifacts; pushing a tag like v0.2.0 also publishes them as a
+# GitHub release, which every EmuHub already installed then updates to.
 on:
   workflow_dispatch:
   pull_request:
@@ -45,10 +45,14 @@ jobs:
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0
 
+      # The emulators the bundler downloads, and the published emulator
+      # package, which every build must embed exactly.
       - name: Cache emulator downloads
         uses: actions/cache@v4
         with:
-          path: ~/.cache/emuhub-build/downloads
+          path: |
+            ~/.cache/emuhub-build/downloads
+            ~/.cache/emuhub-build/published
           key: emulators-${{ hashFiles('emulators.lock.json') }}-${{ matrix.target }}
 
       - name: Test
@@ -56,6 +60,9 @@ jobs:
 
       - name: Build
         run: scripts/build-release.sh ${{ matrix.target }}
+        env:
+          EMUHUB_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          EMUHUB_REPO: ${{ github.repository }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -71,11 +78,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*
-          generate_release_notes: true
+      - name: Publish
+        run: scripts/publish-release.sh "${{ github.ref_name }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EMUHUB_REPO: ${{ github.repository }}

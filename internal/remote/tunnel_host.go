@@ -263,7 +263,7 @@ func (s *hostSession) stream(st *quic.Stream) {
 		hs.Close()
 		return
 	}
-	pipe(hs, c.(*net.TCPConn))
+	pipe(hs, c.(*net.TCPConn), nil)
 }
 
 func (s *hostSession) datagrams(ctx context.Context) {

@@ -160,10 +160,10 @@ func TestSeats(t *testing.T) {
 	}
 
 	seats := NewSeats(3, true)
-	if !SeatGuest(seats, 1) || !SeatGuest(seats, 2) || SeatGuest(seats, 3) {
+	if !SeatGuest(seats, 1, "Ana") || !SeatGuest(seats, 2, "") || SeatGuest(seats, 3, "") {
 		t.Fatalf("asientos mal repartidos: %+v", seats)
 	}
-	want := []Seat{{Kind: "host"}, {Kind: "guest", Guest: 1}, {Kind: "guest", Guest: 2}}
+	want := []Seat{{Kind: "host"}, {Kind: "guest", Guest: 1, Name: "Ana"}, {Kind: "guest", Guest: 2}}
 	if !reflect.DeepEqual(seats, want) {
 		t.Fatalf("got %+v", seats)
 	}

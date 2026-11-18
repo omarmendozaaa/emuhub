@@ -33,6 +33,8 @@ type tunnelGuest struct {
 	tcp   []net.Listener
 	udp   map[uint16]*net.UDPConn
 	frag  fragmenter
+	base  uint16 // Sunshine's HTTP port, where pairing goes
+	name  string // the guest's name for the host; see names.go
 
 	mu    sync.Mutex
 	peers map[uint16]*net.UDPAddr // where Moonlight listens, per port
@@ -42,8 +44,8 @@ type tunnelGuest struct {
 
 // dialTunnel opens a tunnel to the host of the room. Once it returns,
 // Moonlight reaches the host at tunnelListen on the room's port.
-func dialTunnel(ctx context.Context, server string, in Invite) (*tunnelGuest, error) {
-	g := &tunnelGuest{udp: map[uint16]*net.UDPConn{}, peers: map[uint16]*net.UDPAddr{}}
+func dialTunnel(ctx context.Context, server string, in Invite, name string) (*tunnelGuest, error) {
+	g := &tunnelGuest{udp: map[uint16]*net.UDPConn{}, peers: map[uint16]*net.UDPAddr{}, base: in.Port, name: name}
 	ok := false
 	defer func() {
 		if !ok {
@@ -224,7 +226,11 @@ func (g *tunnelGuest) acceptTCP(l net.Listener, port uint16) {
 				c.Close()
 				return
 			}
-			pipe(halfStream{st}, c.(*net.TCPConn))
+			var copyIn func(io.Writer, io.Reader) (int64, error)
+			if port == g.base && g.name != "" {
+				copyIn = copyNaming(g.name)
+			}
+			pipe(halfStream{st}, c.(*net.TCPConn), copyIn)
 		}()
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -26,14 +27,20 @@ func requirementError(console, format string, args ...any) error {
 // ---- Bundled emulators ----
 
 type BundleState struct {
-	Available  bool             `json:"available"`
-	Installing bool             `json:"installing"`
-	Ready      bool             `json:"ready"`
-	Done       int64            `json:"done"`
-	Total      int64            `json:"total"`
-	Error      string           `json:"error"`
-	Version    string           `json:"version"`
-	Emulators  []BundledEmuInfo `json:"emulators"`
+	Available bool `json:"available"`
+	// Included says the emulators come inside this binary; otherwise they
+	// are downloaded the first time.
+	Included   bool `json:"included"`
+	Installing bool `json:"installing"`
+	// Phase is bundle.PhaseDownload or bundle.PhaseExtract while installing;
+	// Done and Total are its progress in bytes.
+	Phase     string           `json:"phase"`
+	Ready     bool             `json:"ready"`
+	Done      int64            `json:"done"`
+	Total     int64            `json:"total"`
+	Error     string           `json:"error"`
+	Version   string           `json:"version"`
+	Emulators []BundledEmuInfo `json:"emulators"`
 }
 
 type BundledEmuInfo struct {
@@ -50,19 +57,27 @@ func (a *App) GetBundleInfo() BundleState {
 	return a.bundleState
 }
 
-// installBundle unpacks the embedded emulators on first run (or after an
-// update that changes the bundle version) and reports progress to the UI.
+// installBundle downloads and unpacks the bundled emulators on first run
+// (or after an update that changes them) and reports progress to the UI.
 func (a *App) installBundle() {
 	m, err := bundle.Embedded()
 	if err != nil {
-		// A binary built with emulators whose archive cannot be read would
-		// otherwise look like one where nothing was ever set up.
+		// A binary built with emulators whose description cannot be read
+		// would otherwise look like one where nothing was ever set up.
 		if bundle.Available() {
 			a.setBundleState(BundleState{Available: true, Error: "Los emuladores incluidos están dañados; vuelve a descargar EmuHub: " + err.Error()})
 		}
 		return
 	}
-	state := BundleState{Available: true, Version: m.BundleVersion}
+	a.mu.Lock()
+	if a.bundleState.Installing || a.bundle != nil {
+		a.mu.Unlock()
+		return
+	}
+	a.bundleState.Installing = true
+	a.mu.Unlock()
+
+	state := BundleState{Available: true, Included: bundle.Included(), Version: m.BundleVersion}
 	for _, e := range m.Emulators {
 		state.Emulators = append(state.Emulators, BundledEmuInfo{Name: e.Name, Version: e.Version, License: e.License, Source: e.Source, Consoles: e.Consoles})
 	}
@@ -85,15 +100,19 @@ func (a *App) installBundle() {
 	state.Installing = true
 	a.setBundleState(state)
 	last := int64(-1)
-	installed, err := bundle.Install(dir, func(done, total int64) {
+	installed, err := bundle.Install(context.Background(), dir, func(phase string, done, total int64) {
 		// Throttle events to whole percents.
-		if pct := done * 100 / max(total, 1); pct != last {
+		pct := done * 100 / max(total, 1)
+		if phase != state.Phase {
+			last = -1
+		}
+		if pct != last {
 			last = pct
-			state.Done, state.Total = done, total
+			state.Phase, state.Done, state.Total = phase, done, total
 			a.setBundleState(state)
 		}
 	})
-	state.Installing = false
+	state.Installing, state.Phase = false, ""
 	if err != nil {
 		state.Error = "No se pudieron preparar los emuladores: " + err.Error()
 	} else {
@@ -103,6 +122,12 @@ func (a *App) installBundle() {
 		a.mu.Unlock()
 	}
 	a.setBundleState(state)
+}
+
+// RetryBundle tries again to prepare the bundled emulators after a failed
+// download; a download cut short continues where it stopped.
+func (a *App) RetryBundle() {
+	go a.installBundle()
 }
 
 func (a *App) setBundleState(s BundleState) {

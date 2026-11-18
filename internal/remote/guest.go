@@ -19,6 +19,11 @@ type GuestOptions struct {
 	Tool Tool   // Moonlight
 	Dir  string // where a bundled Moonlight keeps its settings
 	HD   bool   // 1080p instead of 720p; needs a faster connection on both sides
+	// Name is how the host sees this guest in the room. Empty leaves it to
+	// the host, who shows "Invitado N".
+	Name string
+	// Keyboard plays with the keyboard, turned into a gamepad; see kbpad.go.
+	Keyboard bool
 	// Status reports progress in words for the UI.
 	Status func(string)
 }
@@ -28,6 +33,7 @@ type Guest struct {
 	cmd    *exec.Cmd
 	output *tailBuffer
 	tunnel *tunnelGuest // nil when Moonlight reaches the host directly
+	pad    KeyboardPad  // nil unless playing with the keyboard
 }
 
 // Join reaches the host named by the room code, pairs with its PIN and starts
@@ -43,6 +49,21 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 		status = func(string) {}
 	}
 
+	// The keyboard's pad must exist before Moonlight starts, which is when
+	// it looks for gamepads.
+	var pad KeyboardPad
+	if opts.Keyboard {
+		if pad, err = StartKeyboardPad(); err != nil {
+			return nil, err
+		}
+	}
+	padKept := false
+	defer func() {
+		if pad != nil && !padKept {
+			pad.Close()
+		}
+	}()
+
 	status("Buscando la sala…")
 	addr, hostID, err := reachable(ctx, in)
 	var tunnel *tunnelGuest
@@ -52,7 +73,7 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 		}
 		// No direct way in: meet the host on its signaling server.
 		status("Abriendo un túnel hasta el anfitrión…")
-		if tunnel, err = dialTunnel(ctx, in.Server, in); err != nil {
+		if tunnel, err = dialTunnel(ctx, in.Server, in, CleanName(opts.Name)); err != nil {
 			return nil, err
 		}
 		addr, hostID, err = reachable(ctx, Invite{Addrs: []netip.Addr{tunnelListen}, Port: in.Port})
@@ -75,8 +96,18 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 	// A guest who comes back in the same session is still paired.
 	if !paired(ctx, opts, host) {
 		status("Emparejando con el anfitrión…")
+		// Through the tunnel the name is added on the way already. Reaching
+		// the host directly, pairing goes through a relay on loopback that
+		// adds it; Moonlight then streams from the host's own address.
+		pairWith := host
+		if name := CleanName(opts.Name); name != "" && tunnel == nil {
+			if relay, err := startPairRelay(addr, in.Port, name); err == nil {
+				defer relay.Close()
+				pairWith = relayHost(in.Port)
+			}
+		}
 		pairCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-		out, _ := opts.command(pairCtx, "pair", host, "--pin", in.PIN).CombinedOutput()
+		out, _ := opts.command(pairCtx, "pair", pairWith, "--pin", in.PIN).CombinedOutput()
 		cancel()
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
@@ -95,13 +126,13 @@ func Join(ctx context.Context, code string, opts GuestOptions) (*Guest, error) {
 	} else {
 		args = append(args, "--720", "--bitrate", "10000")
 	}
-	g := &Guest{output: &tailBuffer{max: 4096}, tunnel: tunnel}
+	g := &Guest{output: &tailBuffer{max: 4096}, tunnel: tunnel, pad: pad}
 	g.cmd = opts.command(context.Background(), args...)
 	g.cmd.Stdout, g.cmd.Stderr = g.output, g.output
 	if err := g.cmd.Start(); err != nil {
 		return nil, fmt.Errorf("no se pudo iniciar Moonlight: %w", err)
 	}
-	ok = true
+	ok, padKept = true, true
 	return g, nil
 }
 
@@ -112,9 +143,7 @@ func (g *Guest) Tunneled() bool { return g.tunnel != nil }
 // it ended with an error.
 func (g *Guest) Wait() error {
 	err := g.cmd.Wait()
-	if g.tunnel != nil {
-		g.tunnel.Close()
-	}
+	g.release()
 	if err != nil {
 		return fmt.Errorf("%w\n%s", err, lastLines(g.output.Bytes(), 3))
 	}
@@ -126,8 +155,16 @@ func (g *Guest) Stop() {
 	if g.cmd.Process != nil {
 		terminate(g.cmd)
 	}
+	g.release()
+}
+
+// release ends what the session holds besides Moonlight.
+func (g *Guest) release() {
 	if g.tunnel != nil {
 		g.tunnel.Close()
+	}
+	if g.pad != nil {
+		g.pad.Close()
 	}
 }
 

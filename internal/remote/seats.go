@@ -1,5 +1,7 @@
 package remote
 
+import "fmt"
+
 // Seat is one player slot of a room. Seats are numbered from player 1 in
 // the order the emulator will see them.
 type Seat struct {
@@ -7,6 +9,8 @@ type Seat struct {
 	Kind string `json:"kind"`
 	// Guest is the guest's number in order of arrival, from 1.
 	Guest int `json:"guest"`
+	// Name is the name the guest chose in EmuHub, if any.
+	Name string `json:"name"`
 	// Ready says this player's input already reaches the host: for a guest,
 	// Sunshine has created their gamepad.
 	Ready bool `json:"ready"`
@@ -47,10 +51,10 @@ func NewSeats(players int, hostPlays bool) []Seat {
 
 // SeatGuest gives a guest the first free seat and reports whether there was
 // one.
-func SeatGuest(seats []Seat, guest int) bool {
+func SeatGuest(seats []Seat, guest int, name string) bool {
 	for i := range seats {
 		if seats[i].Kind == "" {
-			seats[i] = Seat{Kind: "guest", Guest: guest}
+			seats[i] = Seat{Kind: "guest", Guest: guest, Name: name}
 			return true
 		}
 	}
@@ -137,4 +141,17 @@ func AllReady(seats []Seat) bool {
 		seated++
 	}
 	return seated > 0
+}
+
+// SeatLabel is how the room names a seat's player.
+func SeatLabel(s Seat) string {
+	switch {
+	case s.Kind == "host":
+		return "Tú"
+	case s.Kind == "guest" && s.Name != "":
+		return s.Name
+	case s.Kind == "guest":
+		return fmt.Sprintf("Invitado %d", s.Guest)
+	}
+	return "Libre"
 }

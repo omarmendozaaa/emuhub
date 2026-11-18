@@ -58,6 +58,9 @@ type Settings struct {
 	// RemoteKey is the server's access key, if it has one. Only the host
 	// uses it, to open rooms; it never leaves this machine.
 	RemoteKey string `json:"remoteKey"`
+	// RemoteName is how hosts see this player in their rooms. Empty uses
+	// the user's name on this computer.
+	RemoteName string `json:"remoteName"`
 }
 
 type fileData struct {

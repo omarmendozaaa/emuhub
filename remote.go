@@ -58,6 +58,11 @@ type RemoteSupport struct {
 	HostReason  string `json:"hostReason"`
 	Guest       bool   `json:"guest"`
 	GuestReason string `json:"guestReason"`
+	// Keyboard says whether this computer can join playing with the
+	// keyboard, and KeyboardReason why not.
+	Keyboard       bool                `json:"keyboard"`
+	KeyboardReason string              `json:"keyboardReason"`
+	KeyboardLayout []remote.KeyBinding `json:"keyboardLayout"`
 }
 
 // remoteSession is the state behind RemoteState; guarded by App.mu.
@@ -120,6 +125,12 @@ func (a *App) GetRemoteSupport() RemoteSupport {
 	} else {
 		s.Guest = true
 	}
+	if err := remote.KeyboardPadSupported(); err != nil {
+		s.KeyboardReason = err.Error()
+	} else {
+		s.Keyboard = true
+	}
+	s.KeyboardLayout = remote.KeyboardLayout()
 	return s
 }
 
@@ -260,7 +271,7 @@ func (a *App) roomReady(g library.Game) error {
 	var missing []string
 	for _, st := range s.Seats {
 		if st.Kind == "guest" && !st.Ready {
-			missing = append(missing, fmt.Sprintf("Invitado %d", st.Guest))
+			missing = append(missing, remote.SeatLabel(st))
 		}
 	}
 	if len(missing) == 0 {
@@ -371,13 +382,17 @@ func (a *App) HostGame(id string, players int, hostPlays bool) (RemoteState, err
 		Dir:    dir,
 		Server: remote.WithKey(a.store.Settings().RemoteServer, a.store.Settings().RemoteKey),
 		Guests: remote.GuestSeats(players, hostPlays),
-		OnGuest: func(n int) {
+		OnGuest: func(n int, name string) {
+			who := name
+			if who == "" {
+				who = fmt.Sprintf("Invitado %d", n)
+			}
 			seat := 0
 			a.setRemote(func(s *remoteSession) {
 				s.state.Guests = n
 				// The UI gets its own copy: it reads the old one meanwhile.
 				seats := append([]remote.Seat{}, s.state.Seats...)
-				if remote.SeatGuest(seats, n) {
+				if remote.SeatGuest(seats, n, name) {
 					s.state.Seats = seats
 				}
 				for i, st := range seats {
@@ -387,9 +402,9 @@ func (a *App) HostGame(id string, players int, hostPlays bool) (RemoteState, err
 				}
 			})
 			if a.RunningGame() == id && a.padsAtStart(g) {
-				a.remoteNotice(fmt.Sprintf("Invitado %d se ha unido con el juego en marcha: el emulador no verá su mando hasta que reinicies el juego", n), "error")
+				a.remoteNotice(fmt.Sprintf("%s se ha unido con el juego en marcha: el emulador no verá su mando hasta que reinicies el juego", who), "error")
 			} else if seat > 0 {
-				a.remoteNotice(fmt.Sprintf("Invitado %d se ha unido: jugador %d", n, seat), "info")
+				a.remoteNotice(fmt.Sprintf("%s se ha unido: jugador %d", who, seat), "info")
 			} else {
 				a.remoteNotice("Un invitado se ha unido a la sala", "info")
 			}
@@ -499,7 +514,7 @@ func (a *App) StopHosting() {
 // JoinGame connects to a friend's room with the code they shared. It returns
 // once the code is accepted as well formed; progress and the end of the
 // session arrive as events.
-func (a *App) JoinGame(code string) error {
+func (a *App) JoinGame(code string, keyboard bool) error {
 	if _, err := remote.DecodeInvite(code); err != nil {
 		return err
 	}
@@ -545,9 +560,11 @@ func (a *App) JoinGame(code string) error {
 			}
 		}
 		guest, err := remote.Join(ctx, code, remote.GuestOptions{
-			Tool: tool,
-			Dir:  dir,
-			HD:   a.store.Settings().RemoteHD,
+			Tool:     tool,
+			Dir:      dir,
+			HD:       a.store.Settings().RemoteHD,
+			Name:     a.playerName(),
+			Keyboard: keyboard,
 			Status: func(msg string) {
 				a.setRemote(func(s *remoteSession) { s.state.Message = msg })
 			},
@@ -609,3 +626,14 @@ func (a *App) shutdown(context.Context) {
 	a.StopHosting()
 	a.LeaveGame()
 }
+
+// playerName is how hosts see this player in their rooms.
+func (a *App) playerName() string {
+	if n := remote.CleanName(a.store.Settings().RemoteName); n != "" {
+		return n
+	}
+	return remote.DefaultName()
+}
+
+// DefaultPlayerName is the name used until the player picks one.
+func (a *App) DefaultPlayerName() string { return remote.DefaultName() }

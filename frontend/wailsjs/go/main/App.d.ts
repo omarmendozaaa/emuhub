@@ -3,7 +3,11 @@
 import {library} from '../models';
 import {main} from '../models';
 
+export function CheckForUpdates():Promise<void>;
+
 export function ChooseCover(arg1:string):Promise<library.Game>;
+
+export function DefaultPlayerName():Promise<string>;
 
 export function DetectEmulators(arg1:string):Promise<Array<library.DetectedEmulator>>;
 
@@ -23,9 +27,13 @@ export function GetRoomLimits(arg1:string):Promise<main.RoomLimits>;
 
 export function GetSettings():Promise<library.Settings>;
 
+export function GetUpdateState():Promise<main.UpdateState>;
+
 export function HostGame(arg1:string,arg2:number,arg3:boolean):Promise<main.RemoteState>;
 
-export function JoinGame(arg1:string):Promise<void>;
+export function InstallUpdate():Promise<void>;
+
+export function JoinGame(arg1:string,arg2:boolean):Promise<void>;
 
 export function LaunchGame(arg1:string):Promise<void>;
 
@@ -35,6 +43,8 @@ export function MoveSeat(arg1:number,arg2:number):Promise<number>;
 
 export function OpenBIOSFolder(arg1:string):Promise<void>;
 
+export function OpenReleasePage():Promise<void>;
+
 export function PickExecutable():Promise<string>;
 
 export function PickFolder():Promise<string>;
@@ -42,6 +52,8 @@ export function PickFolder():Promise<string>;
 export function Quit():Promise<void>;
 
 export function RemoveGame(arg1:string):Promise<void>;
+
+export function RetryBundle():Promise<void>;
 
 export function RunningGame():Promise<string>;
 

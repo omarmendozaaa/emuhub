@@ -37,7 +37,17 @@ func main() {
 	platform := flag.String("platform", bundle.CurrentPlatform(), "linux-amd64, windows-amd64 o darwin-universal")
 	cache := flag.String("cache", filepath.Join(home, ".cache", "emuhub-build"), "carpeta de caché")
 	out := flag.String("out", "internal/bundle/data/emulators.zip", "zip de salida")
+	describeZip := flag.String("describe", "", "en vez de empaquetar, describe este zip ya hecho para incrustarlo en EmuHub")
+	url := flag.String("url", "", "con -describe: dirección donde se publica el zip")
+	descOut := flag.String("desc", "internal/bundle/data/emulators.json", "con -describe: archivo de salida")
 	flag.Parse()
+
+	if *describeZip != "" {
+		if err := describe(*describeZip, *url, *descOut); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 
 	lock, err := bundle.ReadLock(*lockPath)
 	if err != nil {
@@ -87,6 +97,43 @@ func main() {
 	if st, err := os.Stat(*out); err == nil {
 		log.Printf("listo: %d emuladores, %.0f MB", len(manifest.Emulators), float64(st.Size())/1e6)
 	}
+}
+
+// describe writes the description a release build embeds: the manifest
+// inside the archive plus where to download it and how to check it.
+func describe(zipPath, url, out string) error {
+	if url == "" {
+		return fmt.Errorf("falta -url")
+	}
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer zr.Close()
+	f, err := zr.Open("manifest.json")
+	if err != nil {
+		return err
+	}
+	var d bundle.Description
+	err = json.NewDecoder(f).Decode(&d.Manifest)
+	f.Close()
+	if err != nil {
+		return fmt.Errorf("manifest.json: %w", err)
+	}
+	st, err := os.Stat(zipPath)
+	if err != nil {
+		return err
+	}
+	sum, err := fileSHA256(zipPath)
+	if err != nil {
+		return err
+	}
+	d.Archive = bundle.Archive{URL: url, SHA256: sum, Size: st.Size()}
+	b, _ := json.MarshalIndent(d, "", "  ")
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(out, b, 0o644)
 }
 
 // fetch downloads url into dir (reusing a cached copy) and verifies its

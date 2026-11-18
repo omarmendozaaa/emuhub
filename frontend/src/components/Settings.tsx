@@ -1,9 +1,10 @@
 import {useEffect, useState} from 'react'
 import type {library, main} from '../../wailsjs/go/models'
 import {
-    DetectEmulators, OpenBIOSFolder, PickExecutable, PickFolder, SaveConsoleConfig, SaveSettings,
+    CheckForUpdates, DefaultPlayerName, DetectEmulators, OpenBIOSFolder, OpenReleasePage, PickExecutable, PickFolder,
+    RetryBundle, SaveConsoleConfig, SaveSettings,
 } from '../../wailsjs/go/main/App'
-import {errorText} from '../util'
+import {errorText, formatAgo, formatMB, percent} from '../util'
 
 export interface CoverProgress {
     done: number
@@ -15,6 +16,8 @@ export interface CoverProgress {
 interface Props {
     initialTab?: string
     bundle: main.BundleState | null
+    update: main.UpdateState | null
+    onUpdate: () => void
     consoles: main.ConsoleInfo[]
     settings: library.Settings
     support: main.RemoteSupport | null
@@ -70,6 +73,8 @@ function General(p: Props) {
         }
     }
     const ready = p.consoles.filter(c => c.ready).length
+    const [defaultName, setDefaultName] = useState('')
+    useEffect(() => { DefaultPlayerName().then(setDefaultName) }, [])
     return (
         <div className="panel">
             <h3>Biblioteca</h3>
@@ -105,10 +110,18 @@ function General(p: Props) {
             <h3>Jugar con amigos</h3>
             <p className="muted small">
                 Abre una sala desde las opciones de un juego (<b>Invitar a un amigo</b>) y comparte el código. Tu amigo entra con
-                <b> Unirse a una sala</b> y juega con su mando como jugador 2, sin necesitar el juego: lo ve desde tu equipo.
+                <b> Unirse a una sala</b> y juega con su mando, o con su teclado, sin necesitar el juego: lo ve desde tu equipo.
                 {p.support && !p.support.host && <span className="error-text"> No puedes crear salas: {p.support.hostReason}.</span>}
                 {p.support && !p.support.guest && <span className="error-text"> No puedes unirte a salas: {p.support.guestReason}.</span>}
             </p>
+            <TextSetting
+                label="Tu nombre en las salas"
+                hint="Así te ven tus amigos cuando entras en sus salas. Si lo dejas vacío se usa el nombre de tu usuario en este equipo."
+                placeholder={defaultName || 'Tu nombre'}
+                value={p.settings.remoteName ?? ''}
+                maxLength={24}
+                onSave={v => save({remoteName: v.trim()})}
+            />
             <ServerSetting settings={p.settings} onChanged={p.onChanged}/>
             <Toggle
                 label="Ver las salas de mis amigos en 1080p"
@@ -121,10 +134,16 @@ function General(p: Props) {
                 <>
                     <h3>Programas incluidos</h3>
                     <p className="muted small">
-                        Esta copia de EmuHub trae sus propios emuladores y los programas de las salas (paquete {p.bundle.version}), así todos usáis las mismas versiones.
-                        {p.bundle.installing && ' Preparándolos…'}
+                        EmuHub usa sus propios emuladores y los programas de las salas (paquete {p.bundle.version}), así todos usáis las mismas versiones.
+                        {!p.bundle.included && ' Se descargan la primera vez y solo vuelven a descargarse cuando cambian.'}
+                        {p.bundle.installing && (p.bundle.phase === 'download'
+                            ? ` Descargando… ${percent(p.bundle.done, p.bundle.total)}%`
+                            : ' Preparándolos…')}
                         {p.bundle.error && <span className="error-text"> {p.bundle.error}</span>}
                     </p>
+                    {p.bundle.error && !p.bundle.ready && !p.bundle.installing && (
+                        <div className="row-actions"><button className="btn" onClick={() => RetryBundle()}>Reintentar</button></div>
+                    )}
                     <table className="controls">
                         <tbody>
                         {p.bundle.emulators.map(e => (
@@ -137,6 +156,8 @@ function General(p: Props) {
                     </table>
                 </>
             )}
+
+            <UpdateSection update={p.update} onUpdate={p.onUpdate}/>
 
             <h3>Controles</h3>
             <table className="controls">
@@ -152,6 +173,30 @@ function General(p: Props) {
                 <tr><td>Atrás</td><td>Esc / ○ (B)</td></tr>
                 </tbody>
             </table>
+        </div>
+    )
+}
+
+function TextSetting({label, hint, placeholder, value, maxLength, onSave}: {
+    label: string, hint?: string, placeholder?: string, value: string, maxLength?: number, onSave: (v: string) => void
+}) {
+    const [text, setText] = useState(value)
+    useEffect(() => setText(value), [value])
+    return (
+        <div className="text-setting">
+            <div>{label}</div>
+            {hint && <div className="muted small">{hint}</div>}
+            <input
+                className="text"
+                value={text}
+                placeholder={placeholder}
+                maxLength={maxLength}
+                spellCheck={false}
+                autoComplete="off"
+                onChange={e => setText(e.target.value)}
+                onBlur={() => text.trim() !== value && onSave(text)}
+                onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            />
         </div>
     )
 }
@@ -433,5 +478,46 @@ function RequirementRow({req, console: consoleId, onChanged, onError}: {
                 <button className="btn" onClick={onChanged}>Comprobar de nuevo</button>
             </div>
         </div>
+    )
+}
+
+function UpdateSection({update, onUpdate}: { update: main.UpdateState | null, onUpdate: () => void }) {
+    const [error, setError] = useState('')
+    if (!update) return null
+    const check = () => {
+        setError('')
+        CheckForUpdates().catch(e => setError(errorText(e)))
+    }
+    const shown = error || update.error
+    return (
+        <>
+            <h3>Versión</h3>
+            <p className="muted small">
+                EmuHub {update.current}.{' '}
+                {update.enabled
+                    ? 'Busca versiones nuevas solo y te avisa arriba; al actualizar se vuelve a abrir con la versión nueva.'
+                    : 'Esta copia no es una versión publicada, así que no se actualiza sola.'}
+            </p>
+            {update.enabled && (
+                <div className="row-actions save-row">
+                    {update.available ? (
+                        <button className="btn primary" disabled={update.downloading} onClick={onUpdate}>
+                            {update.downloading
+                                ? `Descargando… ${percent(update.done, update.total)}%`
+                                : `Actualizar a ${update.available} (${formatMB(update.size)})`}
+                        </button>
+                    ) : (
+                        <button className="btn" disabled={update.checking} onClick={check}>
+                            {update.checking ? 'Buscando…' : 'Buscar actualizaciones'}
+                        </button>
+                    )}
+                    {!update.available && !update.checking && !shown && update.checked > 0 && (
+                        <span className="ok-text small">✓ Tienes la última versión ({formatAgo(update.checked)})</span>
+                    )}
+                    {shown && <span className="error-text small">{shown}</span>}
+                    {shown && <button className="btn ghost" onClick={() => OpenReleasePage()}>Descargar a mano</button>}
+                </div>
+            )}
+        </>
     )
 }

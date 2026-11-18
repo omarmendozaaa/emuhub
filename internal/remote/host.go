@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -44,8 +45,9 @@ type HostOptions struct {
 	Server string
 	// Guests is how many guests the room takes, up to MaxGuests.
 	Guests int
-	// OnGuest is called each time a guest pairs, with the number so far.
-	OnGuest func(guests int)
+	// OnGuest is called each time a guest pairs, with the number so far and
+	// the guest's name, if they gave one.
+	OnGuest func(guests int, name string)
 	// OnLocked is called when the room stops accepting guests after too many
 	// wrong PINs.
 	OnLocked func()
@@ -70,6 +72,7 @@ type Host struct {
 	mu     sync.Mutex
 	guests int
 	failed int
+	names  []string // guests' names so far, to tell two of the same apart
 }
 
 // HostSupported reports whether this system can host, and why not.
@@ -423,7 +426,8 @@ func (h *Host) pairLoop(ctx context.Context) {
 		}
 		var pending struct {
 			Pairings []struct {
-				ID string `json:"id"`
+				ID   string `json:"id"`
+				Name string `json:"name"` // what the guest's EmuHub sent; see names.go
 			} `json:"pairings"`
 		}
 		if err := h.call(ctx, http.MethodGet, "/api/pin", nil, &pending); err != nil {
@@ -432,6 +436,7 @@ func (h *Host) pairLoop(ctx context.Context) {
 		for _, p := range pending.Pairings {
 			h.mu.Lock()
 			n := h.guests
+			name := uniqueName(guestName(p.Name), h.names)
 			h.mu.Unlock()
 			if n >= h.opts.Guests {
 				return
@@ -439,20 +444,27 @@ func (h *Host) pairLoop(ctx context.Context) {
 			var res struct {
 				Status bool `json:"status"`
 			}
-			req := map[string]string{"pairing_id": p.ID, "pin": h.invite.PIN, "name": fmt.Sprintf("Jugador %d", n+2)}
+			record := name
+			if record == "" {
+				record = fmt.Sprintf("Invitado %d", n+1)
+			}
+			req := map[string]string{"pairing_id": p.ID, "pin": h.invite.PIN, "name": record}
 			if err := h.call(ctx, http.MethodPost, "/api/pin", req, &res); err != nil {
 				continue
 			}
 			h.mu.Lock()
 			if res.Status {
 				h.guests++
+				if name != "" {
+					h.names = append(h.names, name)
+				}
 			} else {
 				h.failed++
 			}
 			guests, locked := h.guests, h.failed >= maxFailedPairings
 			h.mu.Unlock()
 			if res.Status && h.opts.OnGuest != nil {
-				h.opts.OnGuest(guests)
+				h.opts.OnGuest(guests, name)
 			}
 			if locked {
 				if h.opts.OnLocked != nil {
@@ -488,6 +500,18 @@ func (h *Host) inputWarning() string {
 		return ""
 	}
 	return "Falta el driver ViGEmBus: sin él, el mando del invitado no funcionará. Instálalo una vez desde github.com/nefarius/ViGEmBus/releases y vuelve a abrir la sala."
+}
+
+// uniqueName tells apart two guests who chose the same name.
+func uniqueName(name string, taken []string) string {
+	if name == "" {
+		return ""
+	}
+	try := name
+	for i := 2; slices.Contains(taken, try); i++ {
+		try = fmt.Sprintf("%s (%d)", name, i)
+	}
+	return try
 }
 
 func randomPIN() (string, error) {
