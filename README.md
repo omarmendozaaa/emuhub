@@ -63,8 +63,12 @@ y **Moonlight 6.2.0** (invitado).
 
 ## Cómo funciona
 
-1. **Descarga** el ejecutable de tu sistema desde [Releases](../../releases).
-2. **Ábrelo.** La primera vez prepara los emuladores incluidos (unos segundos).
+1. **Descarga** el ejecutable de tu sistema desde [Releases](../../releases): `EmuHub-windows-x64.exe`
+   o `EmuHub-linux-x86_64` (unos 16 MB). Los enlaces
+   `../../releases/latest/download/EmuHub-windows-x64.exe` siempre dan la última versión.
+2. **Ábrelo.** La primera vez descarga y prepara los emuladores (unos 300–600 MB, según el sistema).
+   Si la descarga se corta, sigue donde se quedó. Para instalar sin conexión está `EmuHub-completo-*`,
+   que ya los lleva dentro.
 3. En **Ajustes** (`O` u *Options*), añade la carpeta de juegos de cada consola y pulsa *Escanear*.
 4. Para PS1, PS2 y PS3, deja tu BIOS o firmware en `~/ROMs/bios/<consola>/` (ver abajo).
 5. Elige un juego y pulsa ✕ / A / Enter.
@@ -97,7 +101,14 @@ archivos como juegos: ignora las BIOS válidas y las carpetas llamadas `bios`, `
 
 - **Windows**: SmartScreen avisará porque el ejecutable no está firmado → *Más información → Ejecutar de todas formas*.
 - **macOS**: no se publica en las releases; compílalo en un Mac con `scripts/build-release.sh darwin-arm64` (Apple Silicon) o `darwin-amd64` (Intel). La primera vez: clic derecho → *Abrir*, o `xattr -cr EmuHub.app`.
-- **Linux**: `chmod +x EmuHub-*-linux-x86_64`. Requiere WebKitGTK 4.1 (`libwebkit2gtk-4.1`), presente en casi todos los escritorios.
+- **Linux**: `chmod +x EmuHub-linux-x86_64`. Requiere WebKitGTK 4.1 (`libwebkit2gtk-4.1`), presente en casi todos los escritorios.
+
+### Actualizaciones
+
+EmuHub busca versiones nuevas al abrirse y cada 6 horas. Si hay una, aparece **Actualizar a vX.Y.Z**
+arriba (y en *Ajustes → Versión*): la descarga, comprueba su SHA-256, se sustituye a sí mismo y se
+vuelve a abrir. Los emuladores solo se descargan otra vez cuando una versión los cambia. Las copias
+anteriores a v0.2.0 no se actualizan solas: hay que descargar la nueva una vez a mano.
 
 ### Jugar con amigos
 
@@ -223,7 +234,7 @@ y, en Linux, `libgtk-3-dev` y `libwebkit2gtk-4.1-dev`.
 ```bash
 wails dev                                # desarrollo con recarga en caliente (sin emuladores embebidos)
 wails build                              # binario sin emuladores (usa los del sistema)
-scripts/build-release.sh linux-amd64     # release con emuladores embebidos (Linux)
+scripts/build-release.sh linux-amd64     # release de Linux (programa + versión completa)
 scripts/build-release.sh windows-amd64   # desde Linux o Windows
 scripts/build-release.sh darwin-arm64    # desde macOS (también darwin-amd64)
 ```
@@ -233,14 +244,31 @@ scripts/build-release.sh darwin-arm64    # desde macOS (también darwin-amd64)
 El workflow [`release.yml`](.github/workflows/release.yml) compila Linux y Windows (macOS se compila a mano en un Mac):
 
 - Cada push a `main` y cada pull request ejecuta los tests y genera los binarios como *artifacts*.
-- Al publicar un tag `v*` (`git tag v0.1.0 && git push --tags`) se crea una **GitHub Release** con todos los ejecutables.
+- Al publicar un tag `v*` (`git tag v0.2.0 && git push --tags`), [`scripts/publish-release.sh`](scripts/publish-release.sh)
+  crea la **GitHub Release** con los programas y `latest.json`, el archivo que leen las copias instaladas
+  para actualizarse. Publicar una versión no requiere nada más.
+- macOS: compila en el Mac con `scripts/build-release.sh darwin-arm64` (y `darwin-amd64`) sobre el mismo
+  tag y ejecuta `scripts/publish-release.sh vX.Y.Z`; se añade a la release y a `latest.json`.
+
+Cada release publica:
+
+| Archivo | Qué es |
+|---|---|
+| `EmuHub-<sistema>` | El programa (~16 MB). Descarga los emuladores la primera vez y se actualiza solo. |
+| `EmuHub-completo-<sistema>` | Lo mismo con los emuladores dentro, para instalar sin descargarlos. |
+| `latest.json` | Versión, nombre, tamaño y SHA-256 del programa de cada sistema. |
+
+Los emuladores van en su propia release, `emuladores-<bundleVersion>` (marcada como *prerelease*
+para que nunca sea la "última"). Se publica una vez por cada `bundleVersion` y la reutilizan todas las
+versiones siguientes: el programa lleva incrustado el SHA-256 del zip, así que `build-release.sh` usa
+siempre el zip ya publicado y solo crea uno nuevo cuando cambia `bundleVersion`.
 
 ### Emuladores embebidos
 
 `emulators.lock.json` fija cada emulador por plataforma (URL, SHA-256, comando de lanzamiento y dónde
 espera la BIOS). `cmd/bundler` descarga cada release, verifica su checksum y la desempaqueta **sin
-ejecutar nada** (los AppImage se leen directamente como squashfs). El resultado se embebe en el
-binario con `-tags bundle`. Para actualizar un emulador basta con editar el lockfile y subir `bundleVersion`.
+ejecutar nada** (los AppImage se leen directamente como squashfs). `-tags bundle` incrusta su descripción
+(`bundler -describe`: manifiesto, URL, tamaño y SHA-256 del zip) y `-tags bundle,bundlezip` también el zip. Para actualizar un emulador basta con editar el lockfile y subir `bundleVersion`.
 
 Sunshine y Moonlight se fijan en el mismo lockfile (con `consoles` vacío) y `internal/remote` los maneja
 como procesos aparte, cada uno con su configuración aislada de la que el usuario pueda tener instalada.

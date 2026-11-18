@@ -33,6 +33,7 @@ type App struct {
 	bundleState BundleState
 	remote      remoteSession
 	pendingLink string // room link waiting for the interface; see link.go
+	update      updater
 }
 
 type ConsoleInfo struct {
@@ -73,6 +74,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.autoConfigure()
 	go a.installBundle()
+	go a.watchUpdates()
 	if a.store.Settings().AutoCovers {
 		go a.fetchMissingCovers()
 	}

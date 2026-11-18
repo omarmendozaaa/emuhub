@@ -99,7 +99,9 @@ export namespace main {
 	}
 	export class BundleState {
 	    available: boolean;
+	    included: boolean;
 	    installing: boolean;
+	    phase: string;
 	    ready: boolean;
 	    done: number;
 	    total: number;
@@ -114,7 +116,9 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.available = source["available"];
+	        this.included = source["included"];
 	        this.installing = source["installing"];
+	        this.phase = source["phase"];
 	        this.ready = source["ready"];
 	        this.done = source["done"];
 	        this.total = source["total"];
@@ -329,6 +333,38 @@ export namespace main {
 	        this.maxPlayers = source["maxPlayers"];
 	        this.seatControl = source["seatControl"];
 	        this.multitapOver = source["multitapOver"];
+	    }
+	}
+	export class UpdateState {
+	    current: string;
+	    enabled: boolean;
+	    available: string;
+	    size: number;
+	    checking: boolean;
+	    downloading: boolean;
+	    done: number;
+	    total: number;
+	    error: string;
+	    checked: number;
+	    page: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.current = source["current"];
+	        this.enabled = source["enabled"];
+	        this.available = source["available"];
+	        this.size = source["size"];
+	        this.checking = source["checking"];
+	        this.downloading = source["downloading"];
+	        this.done = source["done"];
+	        this.total = source["total"];
+	        this.error = source["error"];
+	        this.checked = source["checked"];
+	        this.page = source["page"];
 	    }
 	}
 

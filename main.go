@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"emuhub/internal/library"
+	"emuhub/internal/update"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -29,6 +30,9 @@ func main() {
 			os.Setenv("WEBKIT_USE_SKIA_FOR_COMPOSITION", "0")
 		}
 	}
+	// After an update, the new EmuHub starts while the old one is closing.
+	update.WaitForPrevious()
+	update.Cleanup()
 	store, err := library.OpenStore()
 	if err != nil {
 		log.Fatalf("no se pudo abrir la biblioteca: %v", err)

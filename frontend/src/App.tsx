@@ -2,8 +2,8 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import type {library, main} from '../wailsjs/go/models'
 import {
     ChooseCover, FetchCovers, GetBundleInfo, GetConsoles, GetGames, GetRemoteState, GetRemoteSupport, GetRoomLimits,
-    GetSettings, HostGame, JoinGame, LaunchGame, LeaveGame, MoveSeat, Quit, RemoveGame, RunningGame, ScanLibrary,
-    StopGame, StopHosting, TakeRoomLink, ToggleFavorite,
+    GetSettings, GetUpdateState, HostGame, InstallUpdate, JoinGame, LaunchGame, LeaveGame, MoveSeat, Quit, RemoveGame,
+    RetryBundle, RunningGame, ScanLibrary, StopGame, StopHosting, TakeRoomLink, ToggleFavorite,
 } from '../wailsjs/go/main/App'
 import {ClipboardSetText, EventsOn} from '../wailsjs/runtime/runtime'
 import {Carousel} from './components/Carousel'
@@ -13,7 +13,7 @@ import {Glyph, Hint} from './components/Glyph'
 import {GuestSession, HostBadge, HostRoom, HostSetup, JoinRoom, playerRange, RoomSetup, roomReady} from './components/Remote'
 import {CoverProgress, Settings} from './components/Settings'
 import {Action, blip, useInput} from './input'
-import {backdropUrl, coverUrl, errorText, formatAgo, formatPlaytime, Game} from './util'
+import {backdropUrl, coverUrl, errorText, formatAgo, formatMB, formatPlaytime, Game, percent} from './util'
 
 interface Category {
     id: string
@@ -42,6 +42,7 @@ export default function App() {
     const [moving, setMoving] = useState(false)
     const [settingsTab, setSettingsTab] = useState('general')
     const [bundle, setBundle] = useState<main.BundleState | null>(null)
+    const [update, setUpdate] = useState<main.UpdateState | null>(null)
     const [menuIndex, setMenuIndex] = useState(0)
     const [running, setRunning] = useState<string>('')
     // A room link EmuHub was opened with, shown in the join panel.
@@ -58,6 +59,10 @@ export default function App() {
         setToasts(t => [...t, {id, text, kind}])
         setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), kind === 'error' ? 7000 : 3500)
     }, [])
+
+    const installUpdate = useCallback(() => {
+        InstallUpdate().catch(e => toast(errorText(e), 'error'))
+    }, [toast])
 
     const reload = useCallback(async () => {
         const [c, g, s] = await Promise.all([GetConsoles(), GetGames(), GetSettings()])
@@ -86,6 +91,7 @@ export default function App() {
         })
         RunningGame().then(setRunning)
         GetBundleInfo().then(setBundle)
+        GetUpdateState().then(setUpdate)
         GetRemoteState().then(setRemote)
         GetRemoteSupport().then(setSupport)
         const takeLink = () => TakeRoomLink().then(link => {
@@ -100,8 +106,10 @@ export default function App() {
         takeLink()
         const offs = [
             EventsOn('room:link', takeLink),
+            EventsOn('update:state', (s: main.UpdateState) => setUpdate(s)),
             EventsOn('bundle:state', (s: main.BundleState) => {
                 setBundle(s)
+                if (s.error) toast(s.error, 'error')
                 if (s.ready || s.error) {
                     reload()
                     GetRemoteSupport().then(setSupport)
@@ -391,7 +399,9 @@ export default function App() {
             </button>
             {currentConsole && !currentConsole.ready && !bundle?.installing && (
                 <button className="warn" onClick={() => openSettings(currentConsole.id)} tabIndex={-1}>
-                    {!currentConsole.emulatorOk
+                    {!currentConsole.emulatorOk && currentConsole.emulator === 'bundled' && bundle?.error
+                        ? 'Faltan los emuladores: reintenta la descarga'
+                        : !currentConsole.emulatorOk
                         ? `Configura un emulador para ${currentConsole.shortName}`
                         : `Falta: ${currentConsole.requirements.filter(r => !r.ok).map(r => r.label).join(', ')}`}
                 </button>
@@ -423,6 +433,16 @@ export default function App() {
                 <div className="topbar-right">
                     {covers?.busy && <span className="pill">Portadas {covers.done}/{covers.total}</span>}
                     {scanning && <span className="pill">Escaneando…</span>}
+                    {bundle?.error && !bundle.ready && !bundle.installing && (
+                        <button className="pill-btn warn-pill" title={bundle.error} onClick={() => RetryBundle()} tabIndex={-1}>
+                            Reintentar descarga de emuladores
+                        </button>
+                    )}
+                    {update?.available && !update.downloading && (
+                        <button className="pill-btn update-pill" title="Descarga la versión nueva y reinicia EmuHub" onClick={installUpdate} tabIndex={-1}>
+                            Actualizar a {update.available}
+                        </button>
+                    )}
                     <span className="clock">{clock.toLocaleTimeString('es', {hour: '2-digit', minute: '2-digit'})}</span>
                     <button className="pill-btn" title="Unirse a la sala de un amigo (J)" onClick={openJoin} tabIndex={-1}>Unirse a una sala</button>
                     <button className="icon-btn" title="Ajustes" onClick={() => openSettings()} tabIndex={-1}>⚙</button>
@@ -483,6 +503,8 @@ export default function App() {
                     key={settingsTab}
                     initialTab={settingsTab}
                     bundle={bundle}
+                    update={update}
+                    onUpdate={installUpdate}
                     consoles={consoles}
                     settings={settings}
                     support={support}
@@ -544,10 +566,26 @@ export default function App() {
 
             {bundle?.installing && (
                 <div className="preparing">
-                    <h2>Preparando emuladores</h2>
-                    <p>Solo ocurre la primera vez (o tras actualizar EmuHub). Se están descomprimiendo los emuladores incluidos.</p>
-                    <div className="preparing-bar"><span style={{width: `${bundle.total ? (bundle.done / bundle.total) * 100 : 0}%`}}/></div>
-                    <p className="small">{bundle.total ? Math.round((bundle.done / bundle.total) * 100) : 0}%</p>
+                    <h2>{bundle.phase === 'download' ? 'Descargando emuladores' : 'Preparando emuladores'}</h2>
+                    <p>
+                        {bundle.phase === 'download'
+                            ? 'Solo ocurre la primera vez y cuando cambian los emuladores. Si se corta, seguirá donde se quedó.'
+                            : 'Solo ocurre la primera vez y cuando cambian los emuladores. Se están descomprimiendo.'}
+                    </p>
+                    <div className="preparing-bar"><span style={{width: `${percent(bundle.done, bundle.total)}%`}}/></div>
+                    <p className="small">
+                        {percent(bundle.done, bundle.total)}%
+                        {bundle.phase === 'download' && bundle.total > 0 && ` · ${formatMB(bundle.done)} de ${formatMB(bundle.total)}`}
+                    </p>
+                </div>
+            )}
+
+            {update?.downloading && (
+                <div className="preparing">
+                    <h2>Actualizando EmuHub a {update.available}</h2>
+                    <p>EmuHub se volverá a abrir solo cuando termine.</p>
+                    <div className="preparing-bar"><span style={{width: `${percent(update.done, update.total)}%`}}/></div>
+                    <p className="small">{percent(update.done, update.total)}% · {formatMB(update.done)} de {formatMB(update.total)}</p>
                 </div>
             )}
 

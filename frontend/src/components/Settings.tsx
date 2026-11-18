@@ -1,9 +1,10 @@
 import {useEffect, useState} from 'react'
 import type {library, main} from '../../wailsjs/go/models'
 import {
-    DefaultPlayerName, DetectEmulators, OpenBIOSFolder, PickExecutable, PickFolder, SaveConsoleConfig, SaveSettings,
+    CheckForUpdates, DefaultPlayerName, DetectEmulators, OpenBIOSFolder, OpenReleasePage, PickExecutable, PickFolder,
+    RetryBundle, SaveConsoleConfig, SaveSettings,
 } from '../../wailsjs/go/main/App'
-import {errorText} from '../util'
+import {errorText, formatAgo, formatMB, percent} from '../util'
 
 export interface CoverProgress {
     done: number
@@ -15,6 +16,8 @@ export interface CoverProgress {
 interface Props {
     initialTab?: string
     bundle: main.BundleState | null
+    update: main.UpdateState | null
+    onUpdate: () => void
     consoles: main.ConsoleInfo[]
     settings: library.Settings
     support: main.RemoteSupport | null
@@ -131,10 +134,16 @@ function General(p: Props) {
                 <>
                     <h3>Programas incluidos</h3>
                     <p className="muted small">
-                        Esta copia de EmuHub trae sus propios emuladores y los programas de las salas (paquete {p.bundle.version}), así todos usáis las mismas versiones.
-                        {p.bundle.installing && ' Preparándolos…'}
+                        EmuHub usa sus propios emuladores y los programas de las salas (paquete {p.bundle.version}), así todos usáis las mismas versiones.
+                        {!p.bundle.included && ' Se descargan la primera vez y solo vuelven a descargarse cuando cambian.'}
+                        {p.bundle.installing && (p.bundle.phase === 'download'
+                            ? ` Descargando… ${percent(p.bundle.done, p.bundle.total)}%`
+                            : ' Preparándolos…')}
                         {p.bundle.error && <span className="error-text"> {p.bundle.error}</span>}
                     </p>
+                    {p.bundle.error && !p.bundle.ready && !p.bundle.installing && (
+                        <div className="row-actions"><button className="btn" onClick={() => RetryBundle()}>Reintentar</button></div>
+                    )}
                     <table className="controls">
                         <tbody>
                         {p.bundle.emulators.map(e => (
@@ -147,6 +156,8 @@ function General(p: Props) {
                     </table>
                 </>
             )}
+
+            <UpdateSection update={p.update} onUpdate={p.onUpdate}/>
 
             <h3>Controles</h3>
             <table className="controls">
@@ -467,5 +478,46 @@ function RequirementRow({req, console: consoleId, onChanged, onError}: {
                 <button className="btn" onClick={onChanged}>Comprobar de nuevo</button>
             </div>
         </div>
+    )
+}
+
+function UpdateSection({update, onUpdate}: { update: main.UpdateState | null, onUpdate: () => void }) {
+    const [error, setError] = useState('')
+    if (!update) return null
+    const check = () => {
+        setError('')
+        CheckForUpdates().catch(e => setError(errorText(e)))
+    }
+    const shown = error || update.error
+    return (
+        <>
+            <h3>Versión</h3>
+            <p className="muted small">
+                EmuHub {update.current}.{' '}
+                {update.enabled
+                    ? 'Busca versiones nuevas solo y te avisa arriba; al actualizar se vuelve a abrir con la versión nueva.'
+                    : 'Esta copia no es una versión publicada, así que no se actualiza sola.'}
+            </p>
+            {update.enabled && (
+                <div className="row-actions save-row">
+                    {update.available ? (
+                        <button className="btn primary" disabled={update.downloading} onClick={onUpdate}>
+                            {update.downloading
+                                ? `Descargando… ${percent(update.done, update.total)}%`
+                                : `Actualizar a ${update.available} (${formatMB(update.size)})`}
+                        </button>
+                    ) : (
+                        <button className="btn" disabled={update.checking} onClick={check}>
+                            {update.checking ? 'Buscando…' : 'Buscar actualizaciones'}
+                        </button>
+                    )}
+                    {!update.available && !update.checking && !shown && update.checked > 0 && (
+                        <span className="ok-text small">✓ Tienes la última versión ({formatAgo(update.checked)})</span>
+                    )}
+                    {shown && <span className="error-text small">{shown}</span>}
+                    {shown && <button className="btn ghost" onClick={() => OpenReleasePage()}>Descargar a mano</button>}
+                </div>
+            )}
+        </>
     )
 }

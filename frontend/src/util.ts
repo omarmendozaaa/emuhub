@@ -32,3 +32,11 @@ export function formatAgo(unix: number) {
 export function errorText(e: unknown) {
     return typeof e === 'string' ? e : e instanceof Error ? e.message : String(e)
 }
+
+export function percent(done: number, total: number) {
+    return total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
+}
+
+export function formatMB(bytes: number) {
+    return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`
+}

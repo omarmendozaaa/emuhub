@@ -171,6 +171,11 @@ button { font: inherit; color: inherit; }
 }
 
 .pill-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.update-pill, .warn-pill { white-space: nowrap; }
+.update-pill { background: linear-gradient(90deg, #4a8bff, #7bd4ff); color: #08101f; font-weight: 650; }
+.update-pill:hover { background: linear-gradient(90deg, #6aa0ff, #9be0ff); }
+.warn-pill { background: rgba(255, 99, 99, 0.22); }
+.warn-pill:hover { background: rgba(255, 99, 99, 0.35); }
 
 /* ---------- Carousel ---------- */
 
